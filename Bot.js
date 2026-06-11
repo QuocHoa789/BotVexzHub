@@ -1,8 +1,8 @@
 const { Client, GatewayIntentBits, SlashCommandBuilder, EmbedBuilder, REST, Routes } = require('discord.js');
 const axios = require('axios');
 
-const TOKEN = 'MTUxNDY5MDEzMTgyOTcxOTA5MA.G3nM-G.L5KCdZfPagZSHYeGgvv5k7nbd1-GrVGzR3zga4';
-const CLIENT_ID = '1514690131829719090';
+const TOKEN = '';
+const CLIENT_ID = '';
 
 const client = new Client({
   intents: [
