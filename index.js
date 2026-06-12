@@ -1,4 +1,4 @@
-require('dotenv').config();
+require('dotenv').config(); // Sửa chữ r viết thường
 const { Client, GatewayIntentBits, REST, Routes, SlashCommandBuilder, EmbedBuilder } = require('discord.js');
 const axios = require('axios');
 const http = require('http');
@@ -9,7 +9,7 @@ const PORT = process.env.PORT || 3000;
 
 const client = new Client({ intents: [GatewayIntentBits.Guilds] });
 
-// 1. ĐĂNG KÝ SLASH COMMAND /bypass
+// Cấu hình lệnh Slash Command
 const commands = [
     new SlashCommandBuilder()
         .setName('bypass')
@@ -21,17 +21,7 @@ const commands = [
         )
 ].map(command => command.toJSON());
 
-const rest = new REST({ version: '10' }).setToken(TOKEN);
-(async () => {
-    try {
-        await rest.put(Routes.applicationCommands(CLIENT_ID), { body: commands });
-        console.log('[SYSTEM] Lệnh /bypass đã được đồng bộ lên Discord.');
-    } catch (error) {
-        console.error(error);
-    }
-})();
-
-// 2. THUẬT TOÁN BYPASS API TỐC ĐỘ CAO
+// Thuật toán giải mã link
 async function executeBypass(targetUrl) {
     const apiPool = [
         `https://api.bypass.vip/bypass?url=${encodeURIComponent(targetUrl)}`,
@@ -39,7 +29,6 @@ async function executeBypass(targetUrl) {
     ];
 
     let lastError = '';
-
     for (const url of apiPool) {
         try {
             const response = await axios.get(url, {
@@ -62,7 +51,7 @@ async function executeBypass(targetUrl) {
                         resultKey = secondaryRes.data.destination || secondaryRes.data.result;
                     }
                 }
-                return { success: true, key: resultKey, provider: new URL(url).hostname };
+                return { success: true, key: resultKey };
             }
         } catch (err) {
             lastError = err.message;
@@ -71,7 +60,7 @@ async function executeBypass(targetUrl) {
     return { success: false, error: lastError || "Tất cả các cổng API giải mã hiện tại đều bị quá tải." };
 }
 
-// 3. XỬ LÝ SỰ KIỆN LỆNH DISCORD
+// Xử lý khi nhận lệnh từ Discord
 client.on('interactionCreate', async interaction => {
     if (!interaction.isChatInputCommand()) return;
 
@@ -96,7 +85,7 @@ client.on('interactionCreate', async interaction => {
             const embedSuccess = new EmbedBuilder()
                 .setColor('#2ecc71')
                 .setTitle('🎉 BYPASS KEY THÀNH CÔNG!')
-                .setDescription(`Ông lấy đoạn mã này dán vào Delta là chạy được luôn:\n\`\`\`text\n${bypassStatus.key}\n\`\`\``)
+                .setDescription(`Ông lấy đoạn mã này dán vào Delta:\n\`\`\`text\n${bypassStatus.key}\n\`\`\``)
                 .setFooter({ text: 'Vexz Hub - Code bởi Quoc Hoa' })
                 .setTimestamp();
             await interaction.editReply({ embeds: [embedSuccess] });
@@ -110,18 +99,35 @@ client.on('interactionCreate', async interaction => {
     }
 });
 
-// 4. MỞ CỔNG WEB ĐỂ GIỮ UPTIME
+// Sự kiện khi bot online và ép đồng bộ lệnh
+client.once('ready', async () => {
+    console.log(`[ONLINE] Bot Vexz Hub đã hoạt động dưới tên: ${client.user.tag}`);
+    
+    const rest = new REST({ version: '10' }).setToken(TOKEN);
+    try {
+        console.log('[SYSTEM] Đang tiến hành ép đồng bộ lệnh lên toàn bộ Server...');
+        
+        // Đăng ký trực tiếp vào tất cả các Server bot đang tham gia để hiện lệnh ngay lập tức
+        client.guilds.cache.forEach(async (guild) => {
+            await rest.put(
+                Routes.applicationGuildCommands(CLIENT_ID, guild.id),
+                { body: commands }
+            );
+        });
+
+        console.log('[SYSTEM] Đồng bộ thành công! Kiểm tra Discord xem có lệnh chưa ông.');
+    } catch (error) {
+        console.error('[ERROR] Lỗi đăng ký lệnh:', error);
+    }
+});
+
+// Giữ Uptime Server
 http.createServer((req, res) => {
     res.writeHead(200, { 'Content-Type': 'text/plain; charset=utf-8' });
     res.write('Vexz Hub Bot đang chạy online 24/7!');
     res.end();
 }).listen(PORT, () => {
     console.log(`[UPTIME SERVER] Đã mở cổng thành công tại PORT: ${PORT}`);
-});
-
-// 5. SỰ KIỆN KHI BOT SẴN SÀNG
-client.once('ready', () => {
-    console.log(`[ONLINE] Bot Vexz Hub đã hoạt động dưới tên: ${client.user.tag}`);
 });
 
 client.login(TOKEN);
