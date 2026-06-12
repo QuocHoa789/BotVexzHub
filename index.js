@@ -1,4 +1,4 @@
-require('dotenv').config(); // Sửa chữ r viết thường
+require('dotenv').config();
 const { Client, GatewayIntentBits, REST, Routes, SlashCommandBuilder, EmbedBuilder } = require('discord.js');
 const axios = require('axios');
 const http = require('http');
@@ -9,7 +9,7 @@ const PORT = process.env.PORT || 3000;
 
 const client = new Client({ intents: [GatewayIntentBits.Guilds] });
 
-// Cấu hình lệnh Slash Command
+// Cấu hình cấu trúc lệnh /bypass
 const commands = [
     new SlashCommandBuilder()
         .setName('bypass')
@@ -60,7 +60,7 @@ async function executeBypass(targetUrl) {
     return { success: false, error: lastError || "Tất cả các cổng API giải mã hiện tại đều bị quá tải." };
 }
 
-// Xử lý khi nhận lệnh từ Discord
+// Xử lý khi có người dùng lệnh trong Discord
 client.on('interactionCreate', async interaction => {
     if (!interaction.isChatInputCommand()) return;
 
@@ -85,7 +85,7 @@ client.on('interactionCreate', async interaction => {
             const embedSuccess = new EmbedBuilder()
                 .setColor('#2ecc71')
                 .setTitle('🎉 BYPASS KEY THÀNH CÔNG!')
-                .setDescription(`Ông lấy đoạn mã này dán vào Delta:\n\`\`\`text\n${bypassStatus.key}\n\`\`\``)
+                .setDescription(`Ông lấy đoạn mã này dán vào Delta là chạy được luôn:\n\`\`\`text\n${bypassStatus.key}\n\`\`\``)
                 .setFooter({ text: 'Vexz Hub - Code bởi Quoc Hoa' })
                 .setTimestamp();
             await interaction.editReply({ embeds: [embedSuccess] });
@@ -99,35 +99,31 @@ client.on('interactionCreate', async interaction => {
     }
 });
 
-// Sự kiện khi bot online và ép đồng bộ lệnh
+// Sự kiện khi bot khởi động thành công
 client.once('ready', async () => {
     console.log(`[ONLINE] Bot Vexz Hub đã hoạt động dưới tên: ${client.user.tag}`);
     
+    // Đăng ký lệnh an toàn
     const rest = new REST({ version: '10' }).setToken(TOKEN);
     try {
-        console.log('[SYSTEM] Đang tiến hành ép đồng bộ lệnh lên toàn bộ Server...');
-        
-        // Đăng ký trực tiếp vào tất cả các Server bot đang tham gia để hiện lệnh ngay lập tức
-        client.guilds.cache.forEach(async (guild) => {
-            await rest.put(
-                Routes.applicationGuildCommands(CLIENT_ID, guild.id),
-                { body: commands }
-            );
-        });
-
-        console.log('[SYSTEM] Đồng bộ thành công! Kiểm tra Discord xem có lệnh chưa ông.');
+        console.log('[SYSTEM] Đang gửi yêu cầu cập nhật lệnh lên Discord...');
+        await rest.put(
+            Routes.applicationCommands(CLIENT_ID),
+            { body: commands }
+        );
+        console.log('[SYSTEM] Đã nạp cấu hình lệnh hoàn tất!');
     } catch (error) {
-        console.error('[ERROR] Lỗi đăng ký lệnh:', error);
+        console.error('[WARNING] Không thể đồng bộ lệnh ngay lập tức:', error.message);
     }
 });
 
-// Giữ Uptime Server
+// Giữ cổng Web Uptime hoạt động độc lập không bị sập theo Discord API
 http.createServer((req, res) => {
     res.writeHead(200, { 'Content-Type': 'text/plain; charset=utf-8' });
     res.write('Vexz Hub Bot đang chạy online 24/7!');
     res.end();
 }).listen(PORT, () => {
-    console.log(`[UPTIME SERVER] Đã mở cổng thành công tại PORT: ${PORT}`);
+    console.log(`[UPTIME SERVER] Cổng kết nối Web đã mở tại PORT: ${PORT}`);
 });
 
 client.login(TOKEN);
