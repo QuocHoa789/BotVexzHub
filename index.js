@@ -1,110 +1,127 @@
-require('dotenv').config(); // Hỗ trợ đọc file cấu hình nếu test ở máy
+require('dotenv').config();
 const { Client, GatewayIntentBits, REST, Routes, SlashCommandBuilder, EmbedBuilder } = require('discord.js');
 const axios = require('axios');
+const http = require('http');
 
-// Nạp thông tin cấu hình từ biến môi trường (Environment Variables trên Render)
 const TOKEN = process.env.DISCORD_TOKEN;
 const CLIENT_ID = process.env.CLIENT_ID;
+const PORT = process.env.PORT || 3000;
 
-// Khởi tạo thực thể Bot Discord
 const client = new Client({ intents: [GatewayIntentBits.Guilds] });
 
-// 1. ĐĂNG KÝ HỆ THỐNG LỆNH INTERACTION (SLASH COMMAND)
+// 1. ĐĂNG KÝ SLASH COMMAND /bypass
 const commands = [
     new SlashCommandBuilder()
         .setName('bypass')
-        .setDescription('Bypass siêu tốc link lấy Key Delta/Plato')
+        .setDescription('Bypass Key Delta (Plato Relay) tốc độ cao không lỗi')
         .addStringOption(option =>
             option.setName('url')
-                .setDescription('Dán link auth.platorelay.com lấy từ game vào đây')
+                .setDescription('Dán link auth.platorelay.com lấy từ Delta vào đây')
                 .setRequired(true)
         )
 ].map(command => command.toJSON());
 
 const rest = new REST({ version: '10' }).setToken(TOKEN);
-
 (async () => {
     try {
-        console.log('[SYSTEM] Đang tiến hành đồng bộ lệnh /bypass lên máy chủ Discord...');
         await rest.put(Routes.applicationCommands(CLIENT_ID), { body: commands });
-        console.log('[SYSTEM] Đồng bộ thành công! Lệnh đã sẵn sàng sử dụng.');
+        console.log('[SYSTEM] Lệnh /bypass đã được đồng bộ lên Discord.');
     } catch (error) {
-        console.error('[LỖI ĐĂNG KÝ LỆNH]', error);
+        console.error(error);
     }
 })();
 
-// 2. THUẬT TOÁN KHỬ MÃ HÓA TOKEN ĐA TẦNG (DECODER LOGIC)
-async function requestBypassGate(targetUrl) {
-    // Danh sách các cổng API phân giải chuyên dụng để luân chuyển khi dính lỗi
+// 2. THUẬT TOÁN BYPASS API TỐC ĐỘ CAO
+async function executeBypass(targetUrl) {
     const apiPool = [
         `https://api.bypass.vip/bypass?url=${encodeURIComponent(targetUrl)}`,
         `https://bypass.hd4y.net/api/bypass?url=${encodeURIComponent(targetUrl)}`
     ];
 
-    let fallbackError = '';
+    let lastError = '';
 
-    for (const apiGate of apiPool) {
+    for (const url of apiPool) {
         try {
-            console.log(`[CONNECT] Đang gửi yêu cầu giải mã đến server: ${new URL(apiGate).hostname}`);
-            
-            const response = await axios.get(apiGate, {
+            const response = await axios.get(url, {
                 headers: {
-                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36',
+                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)',
                     'Accept': 'application/json'
                 },
-                timeout: 12000 // Giới hạn 12 giây phản hồi để tránh treo luồng
+                timeout: 12000
             });
 
             const data = response.data;
-
-            // Kiểm tra tính hợp lệ của cấu trúc JSON trả về từ các API Endpoint
             if (data.success || data.status === "success" || data.destination) {
-                let cleanKey = data.destination || data.result || data.bypassed_url;
+                let resultKey = data.destination || data.result || data.bypassed_url;
 
-                // Nếu kết quả trả về vẫn là một link quảng cáo chặn tầng 2, tiến hành bóc tiếp
-                if (cleanKey.includes("lootlabs") || cleanKey.includes("linkvertise") || cleanKey.includes("platorelay")) {
-                    console.log("[CONNECT] Phát hiện liên kết bọc tầng 2, đang gửi request đệ quy...");
-                    const secondaryResponse = await axios.get(`https://api.bypass.vip/bypass?url=${encodeURIComponent(cleanKey)}`, {
+                if (resultKey.includes("lootlabs") || resultKey.includes("linkvertise") || resultKey.includes("platorelay")) {
+                    const secondaryRes = await axios.get(`https://api.bypass.vip/bypass?url=${encodeURIComponent(resultKey)}`, {
                         timeout: 10000
                     });
-                    if (secondaryResponse.data.success || secondaryResponse.data.destination) {
-                        cleanKey = secondaryResponse.data.destination || secondaryResponse.data.result;
+                    if (secondaryRes.data.success || secondaryRes.data.destination) {
+                        resultKey = secondaryRes.data.destination || secondaryRes.data.result;
                     }
                 }
-
-                return { success: true, key: cleanKey, node: new URL(apiGate).hostname };
+                return { success: true, key: resultKey, provider: new URL(url).hostname };
             }
         } catch (err) {
-            fallbackError = err.message;
-            console.log(`[WARN] Cổng ${new URL(apiGate).hostname} phản hồi chậm hoặc lỗi IP. Đang chuyển sang cổng phụ...`);
+            lastError = err.message;
         }
     }
-
-    return { success: false, error: fallbackError || "Hệ thống Token đã hết hạn vạch định thời gian (TTL) hoặc tất cả API bị quá tải." };
+    return { success: false, error: lastError || "Tất cả các cổng API giải mã hiện tại đều bị quá tải." };
 }
 
-// 3. TIẾP NHẬN SỰ KIỆN VÀ PHẢN HỒI LỆNH (EVENT LISTENER)
+// 3. XỬ LÝ SỰ KIỆN LỆNH DISCORD
 client.on('interactionCreate', async interaction => {
     if (!interaction.isChatInputCommand()) return;
 
     if (interaction.commandName === 'bypass') {
-        const rawUrl = interaction.options.getString('url').trim();
+        const urlInput = interaction.options.getString('url').trim();
 
-        // Bộ lọc điều kiện đầu vào để tránh lãng phí tài nguyên gửi request bừa bãi
-        if (!rawUrl.includes('auth.platorelay.com')) {
-            return interaction.reply({ content: '❌ Định dạng đường dẫn không hợp lệ! Vui lòng nhập đúng link Plato Relay lấy từ game.', ephemeral: true });
+        if (!urlInput.includes('auth.platorelay.com')) {
+            return interaction.reply({ content: '❌ Đây không phải là liên kết lấy Key của Plato Relay/Delta!', ephemeral: true });
         }
 
-        // Ép hoãn thời gian phản hồi (Defer) để không bị lỗi Timeout 3 giây của Discord
         await interaction.deferReply();
 
-        // Tạo khung Embed trạng thái xử lý
-        const embedWaiting = new EmbedBuilder()
-            .setColor('#e67e22')
-            .setTitle('⚡ ĐANG KHỞI CHẠY TIẾN TRÌNH...')
-            .setDescription('Hệ thống đang thực hiện bóc tách token mã hóa trực tiếp thông qua API Server. Vui lòng giữ kết nối...');
-        
-        await interaction.editReply({ embeds: [embedWaiting] });
+        const embedLoading = new EmbedBuilder()
+            .setColor('#f1c40f')
+            .setTitle('⚡ ĐANG TRÍCH XUẤT KEY THẬT...')
+            .setDescription('Hệ thống đang chạy thuật toán giải mã chuỗi token mã hóa ngầm...');
+        await interaction.editReply({ embeds: [embedLoading] });
 
-        // Gọi hàm thực thi giải mã
-        const processStatus = await requestByp
+        const bypassStatus = await executeBypass(urlInput);
+
+        if (bypassStatus.success) {
+            const embedSuccess = new EmbedBuilder()
+                .setColor('#2ecc71')
+                .setTitle('🎉 BYPASS KEY THÀNH CÔNG!')
+                .setDescription(`Ông lấy đoạn mã này dán vào Delta là chạy được luôn:\n\`\`\`text\n${bypassStatus.key}\n\`\`\``)
+                .setFooter({ text: 'Vexz Hub - Code bởi Quoc Hoa' })
+                .setTimestamp();
+            await interaction.editReply({ embeds: [embedSuccess] });
+        } else {
+            const embedError = new EmbedBuilder()
+                .setColor('#e74c3c')
+                .setTitle('❌ XỬ LÝ THẤT BẠI')
+                .setDescription(`**Lý do lỗi:** \`${bypassStatus.error}\``);
+            await interaction.editReply({ embeds: [embedError] });
+        }
+    }
+});
+
+// 4. MỞ CỔNG WEB ĐỂ GIỮ UPTIME
+http.createServer((req, res) => {
+    res.writeHead(200, { 'Content-Type': 'text/plain; charset=utf-8' });
+    res.write('Vexz Hub Bot đang chạy online 24/7!');
+    res.end();
+}).listen(PORT, () => {
+    console.log(`[UPTIME SERVER] Đã mở cổng thành công tại PORT: ${PORT}`);
+});
+
+// 5. SỰ KIỆN KHI BOT SẴN SÀNG
+client.once('ready', () => {
+    console.log(`[ONLINE] Bot Vexz Hub đã hoạt động dưới tên: ${client.user.tag}`);
+});
+
+client.login(TOKEN);
