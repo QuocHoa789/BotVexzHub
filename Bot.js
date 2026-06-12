@@ -1,162 +1,110 @@
-const { Client, GatewayIntentBits, SlashCommandBuilder, EmbedBuilder, REST, Routes } = require('discord.js');
+require('dotenv').config(); // Hỗ trợ đọc file cấu hình nếu test ở máy
+const { Client, GatewayIntentBits, REST, Routes, SlashCommandBuilder, EmbedBuilder } = require('discord.js');
 const axios = require('axios');
 
-const TOKEN = '';
-const CLIENT_ID = '';
+// Nạp thông tin cấu hình từ biến môi trường (Environment Variables trên Render)
+const TOKEN = process.env.DISCORD_TOKEN;
+const CLIENT_ID = process.env.CLIENT_ID;
 
-const client = new Client({
-  intents: [
-    GatewayIntentBits.Guilds,
-    GatewayIntentBits.GuildMessages,
-    GatewayIntentBits.MessageContent
-  ]
-});
+// Khởi tạo thực thể Bot Discord
+const client = new Client({ intents: [GatewayIntentBits.Guilds] });
 
-// ──────────────────── PROXY LIST ────────────────────
-const PROXIES = [
-  'https://api.allorigins.win/raw?url=',
-  'https://corsproxy.io/?',
-  'https://api.codetabs.com/v1/proxy?quest='
-];
+// 1. ĐĂNG KÝ HỆ THỐNG LỆNH INTERACTION (SLASH COMMAND)
+const commands = [
+    new SlashCommandBuilder()
+        .setName('bypass')
+        .setDescription('Bypass siêu tốc link lấy Key Delta/Plato')
+        .addStringOption(option =>
+            option.setName('url')
+                .setDescription('Dán link auth.platorelay.com lấy từ game vào đây')
+                .setRequired(true)
+        )
+].map(command => command.toJSON());
 
-// ──────────────────── HELPER FUNCTIONS ────────────────────
-function wait(ms) {
-  return new Promise(resolve => setTimeout(resolve, ms));
-}
+const rest = new REST({ version: '10' }).setToken(TOKEN);
 
-async function fetchUrl(url, method) {
-  const proxyUrl = PROXIES[method] + encodeURIComponent(url);
-  try {
-    const res = await axios.get(proxyUrl, {
-      timeout: 15000,
-      headers: {
-        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-        'User-Agent': 'Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36'
-      },
-      maxRedirects: 5,
-      responseType: 'text'
-    });
-    return { text: res.data, url: res.request?.res?.responseUrl || url, status: res.status };
-  } catch (err) {
-    throw new Error(`Request failed: ${err.message}`);
-  }
-}
-
-function extractLinks(html) {
-  const found = [];
-  const patterns = [
-    /window\.location\.href\s*=\s*["'`]([^"'`]+)["'`]/gi,
-    /window\.location\.replace\s*\(\s*["'`]([^"'`]+)["'`]\)/gi,
-    /location\.href\s*=\s*["'`]([^"'`]+)["'`]/gi,
-    /location\.replace\s*\(\s*["'`]([^"'`]+)["'`]\)/gi,
-    /<meta[^>]+http-equiv=["']refresh["'][^>]+content=["']\d+;\s*url=([^"'>\s]+)/gi,
-    /(?:redirectTo|navigateTo|goTo|redirectUrl|targetUrl|finalUrl|destUrl)\s*[:=]\s*["'`]([^"'`]+)["'`]/gi,
-    /data-url\s*=\s*["'`]([^"'`]+)["'`]/gi,
-    /data-redirect\s*=\s*["'`]([^"'`]+)["'`]/gi,
-    /data-link\s*=\s*["'`]([^"'`]+)["'`]/gi,
-    /fetch\s*\(\s*["'`]([^"'`]+)["'`]\)/gi,
-    /["'`](https?:\/\/[^"'`\s]*(?:api|auth|verify|checkpoint|complete|finish|key|token|done|success)[^"'`\s]*)["'`]/gi,
-    /<a[^>]+href\s*=\s*["'`]([^"'`]+)["'`][^>]*>(?:[^<]*(?:get\s*key|continue|next|proceed|download|verify|complete|skip|claim)[^<]*)<\/a>/gi,
-  ];
-
-  patterns.forEach(pat => {
-    let m;
-    while ((m = pat.exec(html)) !== null) {
-      const link = m[1];
-      if (link && link.length > 3 && !found.includes(link)) {
-        found.push(link);
-      }
+(async () => {
+    try {
+        console.log('[SYSTEM] Đang tiến hành đồng bộ lệnh /bypass lên máy chủ Discord...');
+        await rest.put(Routes.applicationCommands(CLIENT_ID), { body: commands });
+        console.log('[SYSTEM] Đồng bộ thành công! Lệnh đã sẵn sàng sử dụng.');
+    } catch (error) {
+        console.error('[LỖI ĐĂNG KÝ LỆNH]', error);
     }
-  });
+})();
 
-  return found;
-}
+// 2. THUẬT TOÁN KHỬ MÃ HÓA TOKEN ĐA TẦNG (DECODER LOGIC)
+async function requestBypassGate(targetUrl) {
+    // Danh sách các cổng API phân giải chuyên dụng để luân chuyển khi dính lỗi
+    const apiPool = [
+        `https://api.bypass.vip/bypass?url=${encodeURIComponent(targetUrl)}`,
+        `https://bypass.hd4y.net/api/bypass?url=${encodeURIComponent(targetUrl)}`
+    ];
 
-function extractKey(text) {
-  const patterns = [
-    /FREE_[a-fA-F0-9]{20,40}/g,
-    /key[=:]\s*["'`]?([a-zA-Z0-9_]{20,60})["'`]?/gi,
-    /Key:\s*["'`]?([a-zA-Z0-9_]{20,60})/gi,
-    /["'`]([a-zA-Z0-9_]{32,})["'`]/g,
-  ];
+    let fallbackError = '';
 
-  for (const pat of patterns) {
-    let m;
-    while ((m = pat.exec(text)) !== null) {
-      const k = m[1] || m[0];
-      if (k && k.length >= 20 && !k.includes('http') && !k.includes('function') && !k.includes('script')) {
-        return k.startsWith('FREE_') ? k : `FREE_${k}`;
-      }
-    }
-  }
+    for (const apiGate of apiPool) {
+        try {
+            console.log(`[CONNECT] Đang gửi yêu cầu giải mã đến server: ${new URL(apiGate).hostname}`);
+            
+            const response = await axios.get(apiGate, {
+                headers: {
+                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36',
+                    'Accept': 'application/json'
+                },
+                timeout: 12000 // Giới hạn 12 giây phản hồi để tránh treo luồng
+            });
 
-  return null;
-}
+            const data = response.data;
 
-function extractKeyFromUrl(url) {
-  try {
-    return extractKey(decodeURIComponent(url));
-  } catch {
-    return null;
-  }
-}
+            // Kiểm tra tính hợp lệ của cấu trúc JSON trả về từ các API Endpoint
+            if (data.success || data.status === "success" || data.destination) {
+                let cleanKey = data.destination || data.result || data.bypassed_url;
 
-async function processUrl(url, depth, method, logCallback) {
-  if (depth > 8) {
-    logCallback('⚠️ Quá 8 redirect, dừng', 'warn');
-    return null;
-  }
+                // Nếu kết quả trả về vẫn là một link quảng cáo chặn tầng 2, tiến hành bóc tiếp
+                if (cleanKey.includes("lootlabs") || cleanKey.includes("linkvertise") || cleanKey.includes("platorelay")) {
+                    console.log("[CONNECT] Phát hiện liên kết bọc tầng 2, đang gửi request đệ quy...");
+                    const secondaryResponse = await axios.get(`https://api.bypass.vip/bypass?url=${encodeURIComponent(cleanKey)}`, {
+                        timeout: 10000
+                    });
+                    if (secondaryResponse.data.success || secondaryResponse.data.destination) {
+                        cleanKey = secondaryResponse.data.destination || secondaryResponse.data.result;
+                    }
+                }
 
-  logCallback(`🔍 Depth ${depth}: ${url.substring(0, 90)}`, 'info');
-
-  try {
-    const resp = await fetchUrl(url, method);
-    const html = resp.text || '';
-    const finalUrl = resp.url || url;
-
-    logCallback(`✅ Status: ${resp.status} | Size: ${html.length} bytes`, 'info');
-
-    if (html.length === 0) {
-      logCallback('⚠️ Response rỗng, thử method khác...', 'warn');
-      if (method < 2) return processUrl(url, depth, method + 1, logCallback);
-      return null;
+                return { success: true, key: cleanKey, node: new URL(apiGate).hostname };
+            }
+        } catch (err) {
+            fallbackError = err.message;
+            console.log(`[WARN] Cổng ${new URL(apiGate).hostname} phản hồi chậm hoặc lỗi IP. Đang chuyển sang cổng phụ...`);
+        }
     }
 
-    // Check key in URL
-    const keyFromUrl = extractKeyFromUrl(finalUrl);
-    if (keyFromUrl) {
-      logCallback('🔑 Tìm thấy key trong URL!', 'success');
-      return keyFromUrl;
-    }
+    return { success: false, error: fallbackError || "Hệ thống Token đã hết hạn vạch định thời gian (TTL) hoặc tất cả API bị quá tải." };
+}
 
-    // Check key in body
-    const keyFromBody = extractKey(html);
-    if (keyFromBody) {
-      logCallback('🔑 Tìm thấy key trong body!', 'success');
-      return keyFromBody;
-    }
+// 3. TIẾP NHẬN SỰ KIỆN VÀ PHẢN HỒI LỆNH (EVENT LISTENER)
+client.on('interactionCreate', async interaction => {
+    if (!interaction.isChatInputCommand()) return;
 
-    // Extract and follow links
-    const links = extractLinks(html);
-    logCallback(`📎 Tìm thấy ${links.length} link`, 'info');
+    if (interaction.commandName === 'bypass') {
+        const rawUrl = interaction.options.getString('url').trim();
 
-    const priority = links.filter(l =>
-      l.includes('api') || l.includes('checkpoint') || l.includes('verify') ||
-      l.includes('complete') || l.includes('key') || l.includes('auth') ||
-      l.includes('done') || l.includes('success') || l.includes('claim')
-    );
-    const normal = links.filter(l => !priority.includes(l));
-    const sorted = [...priority, ...normal].filter(l =>
-      !l.startsWith('javascript:') && !l.startsWith('#') && l.length > 1
-    );
+        // Bộ lọc điều kiện đầu vào để tránh lãng phí tài nguyên gửi request bừa bãi
+        if (!rawUrl.includes('auth.platorelay.com')) {
+            return interaction.reply({ content: '❌ Định dạng đường dẫn không hợp lệ! Vui lòng nhập đúng link Plato Relay lấy từ game.', ephemeral: true });
+        }
 
-    for (const link of sorted) {
-      let fullUrl;
-      try {
-        fullUrl = new URL(link, finalUrl).href;
-      } catch {
-        if (link.startsWith('http')) fullUrl = link;
-        else continue;
-      }
+        // Ép hoãn thời gian phản hồi (Defer) để không bị lỗi Timeout 3 giây của Discord
+        await interaction.deferReply();
 
-      if (fullUrl === url || fullUr
+        // Tạo khung Embed trạng thái xử lý
+        const embedWaiting = new EmbedBuilder()
+            .setColor('#e67e22')
+            .setTitle('⚡ ĐANG KHỞI CHẠY TIẾN TRÌNH...')
+            .setDescription('Hệ thống đang thực hiện bóc tách token mã hóa trực tiếp thông qua API Server. Vui lòng giữ kết nối...');
+        
+        await interaction.editReply({ embeds: [embedWaiting] });
+
+        // Gọi hàm thực thi giải mã
+        const processStatus = await requestByp
