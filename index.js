@@ -1,10 +1,9 @@
-// bot.js – Discord Bot Obfuscator Lua (Render / Discord.js v14)
-const fs = require('fs');
+// index.js – Discord Bot Obfuscator Lua (Render / Discord.js v14)
 const { Client, GatewayIntentBits, AttachmentBuilder } = require('discord.js');
 const luaparse = require('luaparse');
 const crypto = require('crypto');
 
-// ========== OBFUSCATOR LOGIC (giữ nguyên) ==========
+// ========== OBFUSCATOR LOGIC ==========
 let KEY_TABLE = Array.from({length:256}, () => Math.floor(Math.random()*256));
 let STRING_POOL = [];
 
@@ -218,22 +217,20 @@ _vm.run(_bc)
     return finalCode;
 }
 
-// ========== DISCORD BOT (v14) ==========
+// ========== DISCORD BOT ==========
 const client = new Client({ intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMessages, GatewayIntentBits.MessageContent, GatewayIntentBits.DirectMessages] });
 
 client.once('ready', () => {
-    console.log(`Bot đã online: ${client.user.tag}`);
+    console.log(`Bot đã sẵn sàng: ${client.user.tag}`);
 });
 
 client.on('messageCreate', async (message) => {
     if (message.author.bot) return;
     if (message.content.startsWith('.obf v1')) {
         let code = message.content.slice('.obf v1'.length).trim();
-        // Nếu code được wrap trong code block ```lua ... ```
         const codeBlockMatch = code.match(/```(?:lua)?\n([\s\S]*?)\n```/);
         if (codeBlockMatch) code = codeBlockMatch[1];
         else {
-            // Kiểm tra attachment
             const attachment = message.attachments.first();
             if (attachment && attachment.name.endsWith('.lua')) {
                 try {
@@ -244,28 +241,27 @@ client.on('messageCreate', async (message) => {
                 }
             }
         }
-        if (!code) return message.reply('❌ Vui lòng gửi code Lua sau lệnh `.obf v1` (có thể bọc trong \\`\\`\\`lua ... \\`\\`\\`) hoặc đính kèm file .lua.');
+        if (!code) return message.reply('❌ Hãy gửi code Lua sau `.obf v1` hoặc đính kèm file .lua.');
 
         try {
             const obfuscated = obfuscateCode(code);
             if (obfuscated.length > 1900) {
                 const buffer = Buffer.from(obfuscated, 'utf8');
                 const attachment = new AttachmentBuilder(buffer, { name: 'obfuscated.lua' });
-                return message.reply({ files: [attachment], content: '✅ Code đã được obfuscate (xem file đính kèm).' });
+                return message.reply({ files: [attachment], content: '✅ Obfuscate thành công (file đính kèm).' });
             } else {
-                return message.reply(`✅ Code đã obfuscate:\n\`\`\`lua\n${obfuscated}\n\`\`\``);
+                return message.reply(`✅ Obfuscate thành công:\n\`\`\`lua\n${obfuscated}\n\`\`\``);
             }
         } catch (err) {
             console.error(err);
-            return message.reply(`❌ Lỗi khi obfuscate: ${err.message}`);
+            return message.reply(`❌ Lỗi: ${err.message}`);
         }
     }
 });
 
-// Lấy token từ biến môi trường (Render sẽ set ở Dashboard)
 const TOKEN = process.env.DISCORD_TOKEN;
 if (!TOKEN) {
-    console.error('Chưa set DISCORD_TOKEN trong môi trường!');
+    console.error('Chưa có DISCORD_TOKEN trong biến môi trường.');
     process.exit(1);
 }
 client.login(TOKEN); 
