@@ -1,4 +1,4 @@
-// index.js – Discord Bot Obfuscator Lua (Render / Discord.js v14)
+// index.js – Discord Bot Lua Obfuscator (Render / Discord.js v14)
 const { Client, GatewayIntentBits, AttachmentBuilder } = require('discord.js');
 const luaparse = require('luaparse');
 const crypto = require('crypto');
@@ -139,37 +139,53 @@ function compileAST(ast) {
     let bytecode = [];
     let varMap = new Map();
     let varCount = 0;
-    function emit(op, ...) { bytecode.push(op); for(let v of arguments) bytecode.push(v); }
-    function getVar(name) { if(!varMap.has(name)) varMap.set(name, ++varCount); return varMap.get(name); }
+    function emit(op, ...args) { // SỬA: thêm tên args
+        bytecode.push(op);
+        for (let v of args) bytecode.push(v);
+    }
+    function getVar(name) {
+        if (!varMap.has(name)) varMap.set(name, ++varCount);
+        return varMap.get(name);
+    }
     function expr(node) {
         if (!node) return;
-        switch(node.type) {
-            case 'NumericLiteral': emit(OP.PUSH, node.value); break;
-            case 'StringLiteral': emit(OP.DECSTR, addString(node.value)); break;
-            case 'Identifier': emit(OP.LOAD, getVar(node.name)); break;
+        switch (node.type) {
+            case 'NumericLiteral':
+                emit(OP.PUSH, node.value);
+                break;
+            case 'StringLiteral':
+                emit(OP.DECSTR, addString(node.value));
+                break;
+            case 'Identifier':
+                emit(OP.LOAD, getVar(node.name));
+                break;
             case 'BinaryExpression':
-                expr(node.left); expr(node.right);
+                expr(node.left);
+                expr(node.right);
                 const ops = {'+':OP.ADD, '-':OP.SUB, '*':OP.MUL, '/':OP.DIV, '%':OP.MOD, '==':OP.EQ, '<':OP.LT, '<=':OP.LE, '..':OP.CONCAT};
                 if (ops[node.operator]) bytecode.push(ops[node.operator]);
                 break;
             case 'CallExpression':
-                for(let i = node.arguments.length-1; i>=0; i--) expr(node.arguments[i]);
+                for (let i = node.arguments.length - 1; i >= 0; i--) expr(node.arguments[i]);
                 let fid = 0;
                 if (node.base.type === 'Identifier' && node.base.name === 'print') fid = 0;
                 emit(OP.CALL, fid, node.arguments.length);
                 break;
-            default: break;
+            default:
+                break;
         }
     }
     function stmt(node) {
         if (!node) return;
-        switch(node.type) {
+        switch (node.type) {
             case 'AssignmentStatement':
                 const v = node.variables[0].name;
                 expr(node.init[0]);
                 emit(OP.STORE, getVar(v));
                 break;
-            case 'FunctionCall': expr(node); break;
+            case 'FunctionCall':
+                expr(node);
+                break;
             case 'IfStatement':
                 expr(node.clauses[0].condition);
                 const jzIdx = bytecode.length;
@@ -177,11 +193,12 @@ function compileAST(ast) {
                 node.clauses[0].body.forEach(stmt);
                 const jmpIdx = bytecode.length;
                 emit(OP.JMP, 0);
-                bytecode[jzIdx+1] = bytecode.length;
+                bytecode[jzIdx + 1] = bytecode.length;
                 if (node.clauses[0].elseBody) node.clauses[0].elseBody.forEach(stmt);
-                bytecode[jmpIdx+1] = bytecode.length;
+                bytecode[jmpIdx + 1] = bytecode.length;
                 break;
-            default: break;
+            default:
+                break;
         }
     }
     ast.body.forEach(s => stmt(s));
@@ -196,8 +213,8 @@ function obfuscateCode(luaCode) {
     const bc = compileAST(ast);
 
     const chunks = [];
-    for(let i = 0; i < bc.length; i += 8) {
-        chunks.push(customEncrypt(JSON.stringify(bc.slice(i, i+8))));
+    for (let i = 0; i < bc.length; i += 8) {
+        chunks.push(customEncrypt(JSON.stringify(bc.slice(i, i + 8))));
     }
 
     const runtime = generateRuntime(STRING_POOL);
@@ -218,7 +235,14 @@ _vm.run(_bc)
 }
 
 // ========== DISCORD BOT ==========
-const client = new Client({ intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMessages, GatewayIntentBits.MessageContent, GatewayIntentBits.DirectMessages] });
+const client = new Client({
+    intents: [
+        GatewayIntentBits.Guilds,
+        GatewayIntentBits.GuildMessages,
+        GatewayIntentBits.MessageContent,
+        GatewayIntentBits.DirectMessages
+    ]
+});
 
 client.once('ready', () => {
     console.log(`Bot đã sẵn sàng: ${client.user.tag}`);
