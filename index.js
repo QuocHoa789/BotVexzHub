@@ -1,8 +1,11 @@
-// bot.js - Discord Bot tích hợp Obfuscator Lua (lệnh .obf v1)
+// bot.js - Discord Bot tích hợp Obfuscator Lua (lệnh .obf v1) - ĐÃ FIX LỖI
 const fs = require('fs');
-const { Client, Intents, MessageAttachment } = require('discord.js');
+const { Client, Intents } = require('discord.js');
 const luaparse = require('luaparse');
-const crypto = require('crypto');
+
+// ========== BẮT LỖI TOÀN CỤC ĐỂ TRÁNH CRASH ==========
+process.on('uncaughtException', (err) => console.error('[UNCAUGHT]', err));
+process.on('unhandledRejection', (reason) => console.error('[UNHANDLED]', reason));
 
 // ========== OBFUSCATOR LOGIC ==========
 let KEY_TABLE = Array.from({length:256}, () => Math.floor(Math.random()*256));
@@ -88,6 +91,7 @@ function generateRuntime(pool) {
     const keyTable = JSON.stringify(KEY_TABLE);
     const poolStr = JSON.stringify(pool);
     const antiTamper = generateAntiTamper();
+    // FIX: tạo một hàm ẩn danh và trả về VM thay vì return thẳng
     return `
 local _KEY = ${keyTable}
 local function _d(enc)
@@ -191,7 +195,6 @@ function compileAST(ast) {
 }
 
 function obfuscateCode(luaCode) {
-    // Reset mỗi lần obfuscate để tránh lẫn pool cũ
     KEY_TABLE = Array.from({length:256}, () => Math.floor(Math.random()*256));
     STRING_POOL = [];
     const ast = luaparse.parse(luaCode, {luaVersion:'5.1'});
@@ -204,7 +207,9 @@ function obfuscateCode(luaCode) {
 
     const runtime = generateRuntime(STRING_POOL);
     const finalCode = `--[[ Obfuscated Bot ]]
+local VM = (function()
 ${runtime}
+end)()
 _G["_EXTERNAL"] = { [0] = print }
 local _chunks = ${JSON.stringify(chunks)}
 local _bc = {}
@@ -213,14 +218,23 @@ for i=1,#_chunks do
     local arr = loadstring("return "..plain)()
     for _,v in ipairs(arr) do table.insert(_bc, v) end
 end
-local _vm = VM
-_vm.run(_bc)
+VM.run(_bc)
 `;
     return finalCode;
 }
 
 // ========== DISCORD BOT ==========
-const client = new Client({ intents: [Intents.FLAGS.GUILDS, Intents.FLAGS.GUILD_MESSAGES, Intents.FLAGS.DIRECT_MESSAGES] });
+const client = new Client({
+    intents: [
+        Intents.FLAGS.GUILDS,
+        Intents.FLAGS.GUILD_MESSAGES,
+        Intents.FLAGS.DIRECT_MESSAGES
+    ]
+});
+
+// Xử lý lỗi client để không bị crash
+client.on('error', (err) => console.error('[CLIENT ERROR]', err));
+client.on('shardError', (err) => console.error('[SHARD ERROR]', err));
 
 client.once('ready', () => {
     console.log(`Bot đã online: ${client.user.tag}`);
@@ -228,37 +242,46 @@ client.once('ready', () => {
 
 client.on('messageCreate', async (message) => {
     if (message.author.bot) return;
-    // Lệnh .obf v1 [code Lua]
     if (message.content.startsWith('.obf v1')) {
         let code = message.content.slice('.obf v1'.length).trim();
-        // Nếu code được wrap trong code block ```lua ... ```
         const codeBlockMatch = code.match(/```(?:lua)?\n([\s\S]*?)\n```/);
-        if (codeBlockMatch) code = codeBlockMatch[1];
-        else {
-            // Nếu không có code block, kiểm tra attachment
+        if (codeBlockMatch) {
+            code = codeBlockMatch[1];
+        } else {
             const attachment = message.attachments.first();
             if (attachment && attachment.name.endsWith('.lua')) {
                 try {
+                    const fetch = (await import('node-fetch')).default || require('node-fetch');
                     const response = await fetch(attachment.url);
                     code = await response.text();
                 } catch (e) {
-                    return message.reply('❌ Không thể đọc file đính kèm.');
+                    return message.reply('❌ Không thể đọc file đính kèm. Lỗi: ' + e.message);
                 }
             }
         }
         if (!code) return message.reply('❌ Vui lòng gửi code Lua sau lệnh `.obf v1` (có thể bọc trong \\`\\`\\`lua ... \\`\\`\\`) hoặc đính kèm file .lua.');
 
         try {
-            // Obfuscate
             const obfuscated = obfuscateCode(code);
-            // Gửi file nếu dài, nếu ngắn thì gửi text
-            if (obfuscated.length > 1900) {
-                const buffer = Buffer.from(obfuscated, 'utf8');
-                const attachment = new MessageAttachment(buffer, 'obfuscated.lua');
-                return message.reply({ files: [attachment], content: '✅ Code đã được obfuscate (xem file đính kèm).' });
+            const buffer = Buffer.from(obfuscated, 'utf8');
+            // Tự động phát hiện phiên bản Discord.js để dùng đúng class
+            let attachment;
+            if (typeof MessageAttachment !== 'undefined') {
+                // Discord.js v13
+                attachment = new MessageAttachment(buffer, 'obfuscated.lua');
+            } else if (typeof require('discord.js').AttachmentBuilder !== 'undefined') {
+                // Discord.js v14
+                const { AttachmentBuilder } = require('discord.js');
+                attachment = new AttachmentBuilder(buffer, { name: 'obfuscated.lua' });
             } else {
-                return message.reply(`✅ Code đã obfuscate:\n\`\`\`lua\n${obfuscated}\n\`\`\``);
+                // Fallback: gửi dạng text nếu không xác định được
+                if (obfuscated.length <= 1900) {
+                    return message.reply(`✅ Code đã obfuscate:\n\`\`\`lua\n${obfuscated}\n\`\`\``);
+                } else {
+                    return message.reply('❌ Code quá dài và không thể gửi file do chưa hỗ trợ phiên bản Discord.js này. Hãy kiểm tra lại.');
+                }
             }
+            return message.reply({ files: [attachment], content: '✅ Code đã được obfuscate (xem file đính kèm).' });
         } catch (err) {
             console.error(err);
             return message.reply(`❌ Lỗi khi obfuscate: ${err.message}`);
@@ -266,6 +289,13 @@ client.on('messageCreate', async (message) => {
     }
 });
 
-// THAY TOKEN CỦA BẠN VÀO ĐÂY (hoặc dùng biến môi trường)
-const TOKEN = process.env.DISCORD_TOKEN || 'YOUR_BOT_TOKEN';
-client.login(TOKEN); 
+// Lấy token – NẾU CHƯA CÓ SẼ BÁO LỖI RÕ RÀNG, KHÔNG CRASH
+const TOKEN = process.env.DISCORD_TOKEN;
+if (!TOKEN || TOKEN === 'YOUR_BOT_TOKEN') {
+    console.error('❌ Token Discord chưa được đặt. Vui lòng thay YOUR_BOT_TOKEN hoặc set biến môi trường DISCORD_TOKEN.');
+    process.exit(1);
+}
+client.login(TOKEN).catch(err => {
+    console.error('❌ Không thể đăng nhập Discord. Kiểm tra token:', err.message);
+    process.exit(1);
+});
