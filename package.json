@@ -1,14 +1,12 @@
 {
-  "name": "vexz-bypass-bot",
+  "name": "obf-bot",
   "version": "1.0.0",
-  "description": "Bot Discord chuyên giải mã cổng Plato Relay tốc độ cao",
-  "main": "index.js",
+  "main": "bot.js",
   "scripts": {
-    "start": "node index.js"
+    "start": "node bot.js"
   },
   "dependencies": {
-    "axios": "^1.7.2",
-    "discord.js": "^14.15.3",
-    "dotenv": "^16.4.5"
+    "discord.js": "^14.11.0",
+    "luaparse": "^0.3.1"
   }
 }
