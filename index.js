@@ -1,14 +1,14 @@
-// bot.js - Discord Bot tích hợp Obfuscator Lua (lệnh .obf v1) - ĐÃ FIX LỖI
+// index.js - Discord Bot Obfuscator Lua (đã sửa lỗi SyntaxError)
 const fs = require('fs');
 const { Client, Intents } = require('discord.js');
 const luaparse = require('luaparse');
 
-// ========== BẮT LỖI TOÀN CỤC ĐỂ TRÁNH CRASH ==========
+// ========== BẮT LỖI TOÀN CỤC ==========
 process.on('uncaughtException', (err) => console.error('[UNCAUGHT]', err));
 process.on('unhandledRejection', (reason) => console.error('[UNHANDLED]', reason));
 
 // ========== OBFUSCATOR LOGIC ==========
-let KEY_TABLE = Array.from({length:256}, () => Math.floor(Math.random()*256));
+let KEY_TABLE = Array.from({ length: 256 }, () => Math.floor(Math.random() * 256));
 let STRING_POOL = [];
 
 function customEncrypt(plain) {
@@ -18,16 +18,16 @@ function customEncrypt(plain) {
         const k = KEY_TABLE[(i + bytes.length) % KEY_TABLE.length];
         let val = (bytes[i] ^ k) + (i % 256);
         val = val % 256;
-        enc.push(val.toString(16).padStart(2,'0'));
+        enc.push(val.toString(16).padStart(2, '0'));
     }
     return enc.join('');
 }
 
 const OP = {
-    PUSH:0, ADD:1, SUB:2, MUL:3, DIV:4, MOD:5,
-    EQ:6, LT:7, LE:8, JMP:9, JZ:10, JNZ:11,
-    CALL:12, RET:13, HALT:14, LOAD:15, STORE:16,
-    DECSTR:17, CONCAT:18, NOT:19, NOP:20
+    PUSH: 0, ADD: 1, SUB: 2, MUL: 3, DIV: 4, MOD: 5,
+    EQ: 6, LT: 7, LE: 8, JMP: 9, JZ: 10, JNZ: 11,
+    CALL: 12, RET: 13, HALT: 14, LOAD: 15, STORE: 16,
+    DECSTR: 17, CONCAT: 18, NOT: 19, NOP: 20
 };
 
 function addString(plain) {
@@ -91,7 +91,6 @@ function generateRuntime(pool) {
     const keyTable = JSON.stringify(KEY_TABLE);
     const poolStr = JSON.stringify(pool);
     const antiTamper = generateAntiTamper();
-    // FIX: tạo một hàm ẩn danh và trả về VM thay vì return thẳng
     return `
 local _KEY = ${keyTable}
 local function _d(enc)
@@ -144,37 +143,54 @@ function compileAST(ast) {
     let bytecode = [];
     let varMap = new Map();
     let varCount = 0;
-    function emit(op, ...) { bytecode.push(op); for(let v of arguments) bytecode.push(v); }
-    function getVar(name) { if(!varMap.has(name)) varMap.set(name, ++varCount); return varMap.get(name); }
+    // ✅ ĐÃ SỬA: ...rest thay vì ...
+    function emit(op, ...rest) {
+        bytecode.push(op);
+        for (let v of rest) bytecode.push(v);
+    }
+    function getVar(name) {
+        if (!varMap.has(name)) varMap.set(name, ++varCount);
+        return varMap.get(name);
+    }
     function expr(node) {
         if (!node) return;
-        switch(node.type) {
-            case 'NumericLiteral': emit(OP.PUSH, node.value); break;
-            case 'StringLiteral': emit(OP.DECSTR, addString(node.value)); break;
-            case 'Identifier': emit(OP.LOAD, getVar(node.name)); break;
+        switch (node.type) {
+            case 'NumericLiteral':
+                emit(OP.PUSH, node.value);
+                break;
+            case 'StringLiteral':
+                emit(OP.DECSTR, addString(node.value));
+                break;
+            case 'Identifier':
+                emit(OP.LOAD, getVar(node.name));
+                break;
             case 'BinaryExpression':
-                expr(node.left); expr(node.right);
-                const ops = {'+':OP.ADD, '-':OP.SUB, '*':OP.MUL, '/':OP.DIV, '%':OP.MOD, '==':OP.EQ, '<':OP.LT, '<=':OP.LE, '..':OP.CONCAT};
+                expr(node.left);
+                expr(node.right);
+                const ops = { '+': OP.ADD, '-': OP.SUB, '*': OP.MUL, '/': OP.DIV, '%': OP.MOD, '==': OP.EQ, '<': OP.LT, '<=': OP.LE, '..': OP.CONCAT };
                 if (ops[node.operator]) bytecode.push(ops[node.operator]);
                 break;
             case 'CallExpression':
-                for(let i = node.arguments.length-1; i>=0; i--) expr(node.arguments[i]);
+                for (let i = node.arguments.length - 1; i >= 0; i--) expr(node.arguments[i]);
                 let fid = 0;
                 if (node.base.type === 'Identifier' && node.base.name === 'print') fid = 0;
                 emit(OP.CALL, fid, node.arguments.length);
                 break;
-            default: break;
+            default:
+                break;
         }
     }
     function stmt(node) {
         if (!node) return;
-        switch(node.type) {
+        switch (node.type) {
             case 'AssignmentStatement':
                 const v = node.variables[0].name;
                 expr(node.init[0]);
                 emit(OP.STORE, getVar(v));
                 break;
-            case 'FunctionCall': expr(node); break;
+            case 'FunctionCall':
+                expr(node);
+                break;
             case 'IfStatement':
                 expr(node.clauses[0].condition);
                 const jzIdx = bytecode.length;
@@ -182,11 +198,12 @@ function compileAST(ast) {
                 node.clauses[0].body.forEach(stmt);
                 const jmpIdx = bytecode.length;
                 emit(OP.JMP, 0);
-                bytecode[jzIdx+1] = bytecode.length;
+                bytecode[jzIdx + 1] = bytecode.length;
                 if (node.clauses[0].elseBody) node.clauses[0].elseBody.forEach(stmt);
-                bytecode[jmpIdx+1] = bytecode.length;
+                bytecode[jmpIdx + 1] = bytecode.length;
                 break;
-            default: break;
+            default:
+                break;
         }
     }
     ast.body.forEach(s => stmt(s));
@@ -195,14 +212,14 @@ function compileAST(ast) {
 }
 
 function obfuscateCode(luaCode) {
-    KEY_TABLE = Array.from({length:256}, () => Math.floor(Math.random()*256));
+    KEY_TABLE = Array.from({ length: 256 }, () => Math.floor(Math.random() * 256));
     STRING_POOL = [];
-    const ast = luaparse.parse(luaCode, {luaVersion:'5.1'});
+    const ast = luaparse.parse(luaCode, { luaVersion: '5.1' });
     const bc = compileAST(ast);
 
     const chunks = [];
-    for(let i = 0; i < bc.length; i += 8) {
-        chunks.push(customEncrypt(JSON.stringify(bc.slice(i, i+8))));
+    for (let i = 0; i < bc.length; i += 8) {
+        chunks.push(customEncrypt(JSON.stringify(bc.slice(i, i + 8))));
     }
 
     const runtime = generateRuntime(STRING_POOL);
@@ -232,7 +249,6 @@ const client = new Client({
     ]
 });
 
-// Xử lý lỗi client để không bị crash
 client.on('error', (err) => console.error('[CLIENT ERROR]', err));
 client.on('shardError', (err) => console.error('[SHARD ERROR]', err));
 
@@ -251,7 +267,7 @@ client.on('messageCreate', async (message) => {
             const attachment = message.attachments.first();
             if (attachment && attachment.name.endsWith('.lua')) {
                 try {
-                    const fetch = (await import('node-fetch')).default || require('node-fetch');
+                    const fetch = (...args) => import('node-fetch').then(({ default: fetch }) => fetch(...args));
                     const response = await fetch(attachment.url);
                     code = await response.text();
                 } catch (e) {
@@ -264,22 +280,14 @@ client.on('messageCreate', async (message) => {
         try {
             const obfuscated = obfuscateCode(code);
             const buffer = Buffer.from(obfuscated, 'utf8');
-            // Tự động phát hiện phiên bản Discord.js để dùng đúng class
             let attachment;
-            if (typeof MessageAttachment !== 'undefined') {
-                // Discord.js v13
-                attachment = new MessageAttachment(buffer, 'obfuscated.lua');
-            } else if (typeof require('discord.js').AttachmentBuilder !== 'undefined') {
-                // Discord.js v14
+            // Tự động chọn đúng class cho Discord.js v13 hoặc v14
+            try {
                 const { AttachmentBuilder } = require('discord.js');
                 attachment = new AttachmentBuilder(buffer, { name: 'obfuscated.lua' });
-            } else {
-                // Fallback: gửi dạng text nếu không xác định được
-                if (obfuscated.length <= 1900) {
-                    return message.reply(`✅ Code đã obfuscate:\n\`\`\`lua\n${obfuscated}\n\`\`\``);
-                } else {
-                    return message.reply('❌ Code quá dài và không thể gửi file do chưa hỗ trợ phiên bản Discord.js này. Hãy kiểm tra lại.');
-                }
+            } catch {
+                const { MessageAttachment } = require('discord.js');
+                attachment = new MessageAttachment(buffer, 'obfuscated.lua');
             }
             return message.reply({ files: [attachment], content: '✅ Code đã được obfuscate (xem file đính kèm).' });
         } catch (err) {
@@ -289,13 +297,13 @@ client.on('messageCreate', async (message) => {
     }
 });
 
-// Lấy token – NẾU CHƯA CÓ SẼ BÁO LỖI RÕ RÀNG, KHÔNG CRASH
+// Token: Render hỗ trợ biến môi trường DISCORD_TOKEN
 const TOKEN = process.env.DISCORD_TOKEN;
 if (!TOKEN || TOKEN === 'YOUR_BOT_TOKEN') {
-    console.error('❌ Token Discord chưa được đặt. Vui lòng thay YOUR_BOT_TOKEN hoặc set biến môi trường DISCORD_TOKEN.');
+    console.error('❌ Token Discord chưa được đặt. Vui lòng thêm biến môi trường DISCORD_TOKEN trên Render.');
     process.exit(1);
 }
 client.login(TOKEN).catch(err => {
-    console.error('❌ Không thể đăng nhập Discord. Kiểm tra token:', err.message);
+    console.error('❌ Không thể đăng nhập Discord:', err.message);
     process.exit(1);
 });
