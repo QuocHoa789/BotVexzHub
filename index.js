@@ -195,7 +195,7 @@ function handleMoney(message) {
     const embed = new EmbedBuilder()
         .setColor(0x00FF00)
         .setTitle(`💰 ${message.author.username}`)
-        .setDescription(`${VN} **${money.toLocaleString('vi-VN')} VNĐ**`)
+        .setDescription(`${nuocngot} **${money.toLocaleString('vi-VN')} VNĐ**`)
         .setTimestamp();
     
     return message.reply({ embeds: [embed] });
@@ -223,7 +223,7 @@ function handleDaily(message) {
     const embed = new EmbedBuilder()
         .setColor(0x00BFFF)
         .setTitle('🎁 NHẬN DAILY THÀNH CÔNG!')
-        .setDescription(`${VN} Nhận **${reward.toLocaleString()} VNĐ**\n${VN} **Số dư hiện tại:** ${data.users[userId].money.toLocaleString('vi-VN')} VNĐ`)
+        .setDescription(`${nuocngot} Nhận **${reward.toLocaleString()} VNĐ**\n${nuocngot} **Số dư hiện tại:** ${data.users[userId].money.toLocaleString('vi-VN')} VNĐ`)
         .setFooter({ text: 'Cooldown: 1 giờ 30 phút' })
         .setTimestamp();
     
@@ -248,7 +248,7 @@ function handleBank(message) {
     
     if (!deductMoney(message.author.id, amount)) {
         const currentMoney = getMoney(message.author.id);
-        return message.reply(`❌ Không đủ tiền! Số dư: ${VN} **${currentMoney.toLocaleString('vi-VN')} VNĐ**`);
+        return message.reply(`❌ Không đủ tiền! Số dư: ${nuocngot} **${currentMoney.toLocaleString('vi-VN')} VNĐ**`);
     }
     
     addMoney(targetUser.id, amount);
@@ -256,10 +256,10 @@ function handleBank(message) {
     const embed = new EmbedBuilder()
         .setColor('#0099FF')
         .setTitle('🏦 Chuyển Tiền Thành Công!')
-        .setDescription(`${message.author} ──💸 **${amount.toLocaleString('vi-VN')} ${VN}**──> ${targetUser}`)
+        .setDescription(`${message.author} ──💸 **${amount.toLocaleString('vi-VN')} ${nuocngot}**──> ${targetUser}`)
         .addFields(
-            { name: `💰 ${message.author.username}`, value: `Còn: ${VN} **${getMoney(message.author.id).toLocaleString('vi-VN')} VNĐ**`, inline: true },
-            { name: `💰 ${targetUser.username}`, value: `Có: ${VN} **${getMoney(targetUser.id).toLocaleString('vi-VN')} VNĐ**`, inline: true }
+            { name: `💰 ${message.author.username}`, value: `Còn: ${nuocngot} **${getMoney(message.author.id).toLocaleString('vi-VN')} VNĐ**`, inline: true },
+            { name: `💰 ${targetUser.username}`, value: `Có: ${nuocngot} **${getMoney(targetUser.id).toLocaleString('vi-VN')} VNĐ**`, inline: true }
         )
         .setTimestamp();
     
@@ -272,7 +272,7 @@ function handlePlayWithBot(message) {
     const bet = parseInt(args[1]);
     
     if (isNaN(bet) || bet < 100) return message.reply('❌ Cược tối thiểu **100 VNĐ**!');
-    if (getMoney(message.author.id) < bet) return message.reply(`❌ Không đủ tiền! Số dư: ${VN} **${getMoney(message.author.id).toLocaleString('vi-VN')} VNĐ**`);
+    if (getMoney(message.author.id) < bet) return message.reply(`❌ Không đủ tiền! Số dư: ${nuocngot} **${getMoney(message.author.id).toLocaleString('vi-VN')} VNĐ**`);
     
     deductMoney(message.author.id, bet);
     
@@ -332,18 +332,18 @@ function handlePlayWithBot(message) {
     
     if (winAmount > 0) addMoney(message.author.id, winAmount);
     
-    const displayAmount = winAmount > bet ? `+ **${winAmount.toLocaleString()} ${VN}**` : winAmount === bet ? `Hoàn **${bet.toLocaleString()} ${VN}**` : `Mất **${bet.toLocaleString()} ${VN}**`;
+    const displayAmount = winAmount > bet ? `+ **${winAmount.toLocaleString()} ${nuocngot}**` : winAmount === bet ? `Hoàn **${bet.toLocaleString()} ${nuocngot}**` : `Mất **${bet.toLocaleString()} ${nuocngot}**`;
     
     const embed = new EmbedBuilder()
         .setColor(color)
         .setTitle(`🃏 Bài Cào - ${result}!`)
-        .setDescription(`Cược: **${bet.toLocaleString()} ${VN}**`)
+        .setDescription(`Cược: **${bet.toLocaleString()} ${nuocngot}**`)
         .addFields(
             { name: `👤 ${message.author.username}`, value: `${playerDisplay}\n${playerSpecial ? `**${playerSpecial}** + ` : ''}${getScoreName(playerScore)}`, inline: true },
             { name: `🤖 Bot`, value: `${botDisplay}\n${botSpecial ? `**${botSpecial}** + ` : ''}${getScoreName(botScore)}`, inline: true },
             { name: '💰 Kết quả', value: displayAmount, inline: false }
         )
-        .setFooter({ text: `Số dư: ${VN} ${getMoney(message.author.id).toLocaleString()} VNĐ` });
+        .setFooter({ text: `Số dư: ${nuocngot} ${getMoney(message.author.id).toLocaleString()} VNĐ` });
     
     return message.reply({ embeds: [embed] });
 }
@@ -371,7 +371,7 @@ function handleChallenge(message) {
         const p2Bet = myBet;
         
         if (!deductMoney(targetUser.id, p1Bet)) {
-            return message.reply(`❌ ${targetUser.username} không đủ tiền để chấp nhận thách đấu! Cần **${p1Bet.toLocaleString()} ${VN}**`);
+            return message.reply(`❌ ${targetUser.username} không đủ tiền để chấp nhận thách đấu! Cần **${p1Bet.toLocaleString()} ${nuocngot}**`);
         }
         
         const totalPool = p1Bet + p2Bet;
@@ -439,7 +439,7 @@ function handleChallenge(message) {
         
         if (winner) { 
             addMoney(winner.id, totalPool); 
-            resultText += `\n💰 Nhận ${totalPool.toLocaleString()} ${VN}`; 
+            resultText += `\n💰 Nhận ${totalPool.toLocaleString()} ${nuocngot}`; 
         } else { 
             addMoney(targetUser.id, p1Bet); 
             addMoney(message.author.id, p2Bet); 
@@ -449,7 +449,7 @@ function handleChallenge(message) {
         const embed = new EmbedBuilder()
             .setColor(color)
             .setTitle('⚔️ KẾT QUẢ THÁCH ĐẤU!')
-            .setDescription(targetUser.username + ' cược: ' + p1Bet.toLocaleString() + ` ${VN}\n` + message.author.username + ' cược: ' + p2Bet.toLocaleString() + ` ${VN}\n` + 'Tổng: ' + totalPool.toLocaleString() + ` ${VN}`)
+            .setDescription(targetUser.username + ' cược: ' + p1Bet.toLocaleString() + ` ${nuocngot}\n` + message.author.username + ' cược: ' + p2Bet.toLocaleString() + ` ${nuocngot}\n` + 'Tổng: ' + totalPool.toLocaleString() + ` ${nuocngot}`)
             .addFields(
                 { name: '👤 ' + targetUser.username, value: p1Display + '\n' + (p1Special ? '**' + p1Special + '** + ' : '') + getScoreName(p1Score), inline: true },
                 { name: '👤 ' + message.author.username, value: p2Display + '\n' + (p2Special ? '**' + p2Special + '** + ' : '') + getScoreName(p2Score), inline: true },
@@ -461,7 +461,7 @@ function handleChallenge(message) {
     } else {
         // Tạo thách đấu mới
         if (!deductMoney(message.author.id, myBet)) {
-            return message.reply(`❌ Không đủ tiền để thách đấu! Số dư: ${VN} **${getMoney(message.author.id).toLocaleString('vi-VN')} VNĐ**`);
+            return message.reply(`❌ Không đủ tiền để thách đấu! Số dư: ${nuocngot} **${getMoney(message.author.id).toLocaleString('vi-VN')} VNĐ**`);
         }
         
         const challengeKey = message.author.id + '_' + targetUser.id;
@@ -478,11 +478,11 @@ function handleChallenge(message) {
                 const challenge = challenges.get(challengeKey);
                 challenges.delete(challengeKey);
                 addMoney(challenge.challenger, challenge.amount);
-                message.channel.send(`⏰ <@${challenge.challenger}> thách đấu <@${challenge.target}> nhưng hết hạn!\n💰 Đã hoàn **${challenge.amount.toLocaleString()} ${VN}** cho <@${challenge.challenger}>`);
+                message.channel.send(`⏰ <@${challenge.challenger}> thách đấu <@${challenge.target}> nhưng hết hạn!\n💰 Đã hoàn **${challenge.amount.toLocaleString()} ${nuocngot}** cho <@${challenge.challenger}>`);
             }
         }, 60000);
         
-        return message.reply('⚔️ **THÁCH ĐẤU BÀI CÀO!**\n\n' + message.author.toString() + ' muốn đấu với ' + targetUser.toString() + `\n💰 ` + message.author.username + ' cược: ' + myBet.toLocaleString() + ` ${VN}\n👉 ` + targetUser.toString() + ' gõ: `.cao @' + message.author.username + ' <tiền>` để chấp nhận!\n⏰ Hết hạn sau 60 giây!');
+        return message.reply('⚔️ **THÁCH ĐẤU BÀI CÀO!**\n\n' + message.author.toString() + ' muốn đấu với ' + targetUser.toString() + `\n💰 ` + message.author.username + ' cược: ' + myBet.toLocaleString() + ` ${nuocngot}\n👉 ` + targetUser.toString() + ' gõ: `.cao @' + message.author.username + ' <tiền>` để chấp nhận!\n⏰ Hết hạn sau 60 giây!');
     }
 }
 
