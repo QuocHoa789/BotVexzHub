@@ -94,7 +94,7 @@ function deductMoney(userId, amount) {
 // ============ BỘ BÀI 13 LÁ ============
 const boBai = [
     { id: "2_co", ten: "haitraitim", emojiId: "1520358943078219846", diem: 2 },
-    { id: "3_co", ten: "batraitim", emojiId: "152035895106810980", diem: 3 },
+    { id: "3_co", ten: "batraitim", emojiId: "1520358951068110980", diem: 3 },
     { id: "4_bich", ten: "bonlabai", emojiId: "1520358935381413950", diem: 4 },
     { id: "5_bich", ten: "namlabai", emojiId: "1520358941110833192", diem: 5 },
     { id: "6_bich", ten: "saulabai", emojiId: "152035892888438845", diem: 6 },
