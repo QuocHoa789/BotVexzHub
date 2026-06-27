@@ -1,15 +1,17 @@
 {
-  "name": "obf-bot",
+  "name": "card-game-bot",
   "version": "1.0.0",
+  "description": "Bot choi bai cao va poker",
   "main": "index.js",
   "scripts": {
-    "start": "node index.js"
+    "start": "node index.js",
+    "dev": "node index.js"
   },
   "dependencies": {
-    "discord.js": "^14.11.0",
-    "luaparse": "^0.3.1"
+    "discord.js": "^14.14.1",
+    "dotenv": "^16.4.1"
   },
   "engines": {
-    "node": "18.x"
+    "node": ">=16.0.0"
   }
 }
