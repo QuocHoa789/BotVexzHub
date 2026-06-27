@@ -97,7 +97,7 @@ const boBai = [
     { id: "3_co", ten: "batraitim", emojiId: "1520358951068110980", diem: 3 },
     { id: "4_bich", ten: "bonlabai", emojiId: "1520358935381413950", diem: 4 },
     { id: "5_bich", ten: "namlabai", emojiId: "1520358941110833192", diem: 5 },
-    { id: "6_bich", ten: "saucaulacbo", emojiId: "152035892888438845", diem: 6 },
+    { id: "6_bich", ten: "saucaulacbo", emojiId: "1520358952888438845", diem: 6 },
     { id: "7_chuon", ten: "baycaulacbo", emojiId: "1520358937537282088", diem: 7 },
     { id: "8_co", ten: "tamco", emojiId: "1520358932319572039", diem: 8 },
     { id: "9_chuon", ten: "chincaulacbo", emojiId: "1520358939336638594", diem: 9 },
@@ -170,9 +170,9 @@ function handleHelp(message) {
         .setDescription('Chào mừng bạn đến với Bot Bài Cào! Dưới đây là các lệnh có sẵn:')
         .addFields(
             { name: '💰 `.money`', value: 'Kiểm tra số dư tài khoản của bạn', inline: false },
-            { name: '🎁 `.daily`', value: 'Nhận 5,000 VNĐ miễn phí (1 lần mỗi 1h30p)', inline: false },
-            { name: '🏦 `.bank @user <số_tiền>`', value: 'Chuyển tiền cho người khác (tối thiểu 100 VNĐ)\n**Ví dụ:** `.bank @user 1000`', inline: false },
-            { name: '🃏 `.cao <số_tiền>`', value: 'Chơi bài cào với Bot (cược tối thiểu 100 VNĐ)\n**Ví dụ:** `.cao 500`', inline: false },
+            { name: '🎁 `.daily`', value: 'Nhận 5,000 VND miễn phí (1 lần mỗi 1h30p)', inline: false },
+            { name: '🏦 `.bank @user <số_tiền>`', value: 'Chuyển tiền cho người khác (tối thiểu 100 VND)\n**Ví dụ:** `.bank @user 1000`', inline: false },
+            { name: '🃏 `.cao <số_tiền>`', value: 'Chơi bài cào với Bot (cược tối thiểu 100 VND)\n**Ví dụ:** `.cao 500`', inline: false },
             { name: '⚔️ `.cao @user <số_tiền>`', value: 'Thách đấu người khác chơi bài cào\n**Ví dụ:** `.cao @user 1000`\n⏰ Đối thủ có 60 giây để chấp nhận', inline: false }
         )
         .addFields({
@@ -186,7 +186,7 @@ function handleHelp(message) {
     return message.reply({ embeds: [embed] });
 }
 
-// ============ LỆNH .MONEY ============
+// ============ LỆNH .MONEY (CÓ ICON) ============
 function handleMoney(message) {
     const userId = message.author.id;
     initUser(userId);
@@ -195,7 +195,7 @@ function handleMoney(message) {
     const embed = new EmbedBuilder()
         .setColor(0x00FF00)
         .setTitle(`💰 ${message.author.username}`)
-        .setDescription(`${nuocngot} **${money.toLocaleString('vi-VN')} VNĐ**`)
+        .setDescription(`${nuocngot} **${money.toLocaleString('vi-VN')} VND**`)
         .setTimestamp();
     
     return message.reply({ embeds: [embed] });
@@ -223,14 +223,14 @@ function handleDaily(message) {
     const embed = new EmbedBuilder()
         .setColor(0x00BFFF)
         .setTitle('🎁 NHẬN DAILY THÀNH CÔNG!')
-        .setDescription(`${nuocngot} Nhận **${reward.toLocaleString()} VNĐ**\n${nuocngot} **Số dư hiện tại:** ${data.users[userId].money.toLocaleString('vi-VN')} VNĐ`)
+        .setDescription(`${nuocngot} Nhận **${reward.toLocaleString()} VND**\n${nuocngot} **Số dư hiện tại:** ${data.users[userId].money.toLocaleString('vi-VN')} VND`)
         .setFooter({ text: 'Cooldown: 1 giờ 30 phút' })
         .setTimestamp();
     
     return message.reply({ embeds: [embed] });
 }
 
-// ============ LỆNH .BANK (CHUYỂN TIỀN) ============
+// ============ LỆNH .BANK (CÓ ICON) ============
 function handleBank(message) {
     const args = message.content.split(' ');
     args.shift();
@@ -244,11 +244,11 @@ function handleBank(message) {
     if (mentionIndex !== -1) args.splice(mentionIndex, 1);
     
     const amount = parseInt(args[0]);
-    if (isNaN(amount) || amount < 100) return message.reply('❌ Số tiền chuyển tối thiểu **100 VNĐ**!');
+    if (isNaN(amount) || amount < 100) return message.reply('❌ Số tiền chuyển tối thiểu **100 VND**!');
     
     if (!deductMoney(message.author.id, amount)) {
         const currentMoney = getMoney(message.author.id);
-        return message.reply(`❌ Không đủ tiền! Số dư: ${nuocngot} **${currentMoney.toLocaleString('vi-VN')} VNĐ**`);
+        return message.reply(`❌ Không đủ tiền! Số dư: ${nuocngot} **${currentMoney.toLocaleString('vi-VN')} VND**`);
     }
     
     addMoney(targetUser.id, amount);
@@ -256,23 +256,23 @@ function handleBank(message) {
     const embed = new EmbedBuilder()
         .setColor('#0099FF')
         .setTitle('🏦 Chuyển Tiền Thành Công!')
-        .setDescription(`${message.author} ──💸 **${amount.toLocaleString('vi-VN')} ${nuocngot}**──> ${targetUser}`)
+        .setDescription(`${message.author} ──💸 **${amount.toLocaleString('vi-VN')} VND**──> ${targetUser}`)
         .addFields(
-            { name: `💰 ${message.author.username}`, value: `Còn: ${nuocngot} **${getMoney(message.author.id).toLocaleString('vi-VN')} VNĐ**`, inline: true },
-            { name: `💰 ${targetUser.username}`, value: `Có: ${nuocngot} **${getMoney(targetUser.id).toLocaleString('vi-VN')} VNĐ**`, inline: true }
+            { name: `💰 ${message.author.username}`, value: `Còn: ${nuocngot} **${getMoney(message.author.id).toLocaleString('vi-VN')} VND**`, inline: true },
+            { name: `💰 ${targetUser.username}`, value: `Có: ${nuocngot} **${getMoney(targetUser.id).toLocaleString('vi-VN')} VND**`, inline: true }
         )
         .setTimestamp();
     
     return message.reply({ embeds: [embed] });
 }
 
-// ============ LỆNH .CAO (CHƠI VỚI BOT) ============
+// ============ LỆNH .CAO (CHƠI VỚI BOT - KHÔNG ICON, CHỈ VND) ============
 function handlePlayWithBot(message) {
     const args = message.content.split(' ');
     const bet = parseInt(args[1]);
     
-    if (isNaN(bet) || bet < 100) return message.reply('❌ Cược tối thiểu **100 VNĐ**!');
-    if (getMoney(message.author.id) < bet) return message.reply(`❌ Không đủ tiền! Số dư: ${nuocngot} **${getMoney(message.author.id).toLocaleString('vi-VN')} VNĐ**`);
+    if (isNaN(bet) || bet < 100) return message.reply('❌ Cược tối thiểu **100 VND**!');
+    if (getMoney(message.author.id) < bet) return message.reply(`❌ Không đủ tiền! Số dư: ${nuocngot} **${getMoney(message.author.id).toLocaleString('vi-VN')} VND**`);
     
     deductMoney(message.author.id, bet);
     
@@ -332,23 +332,28 @@ function handlePlayWithBot(message) {
     
     if (winAmount > 0) addMoney(message.author.id, winAmount);
     
-    const displayAmount = winAmount > bet ? `+ **${winAmount.toLocaleString()} ${nuocngot}**` : winAmount === bet ? `Hoàn **${bet.toLocaleString()} ${nuocngot}**` : `Mất **${bet.toLocaleString()} ${nuocngot}**`;
+    // ✅ CHỈ DÙNG "VND", KHÔNG ICON
+    const displayAmount = winAmount > bet 
+        ? `+ **${winAmount.toLocaleString()} VND**` 
+        : winAmount === bet 
+        ? `Hoàn **${bet.toLocaleString()} VND**` 
+        : `Mất **${bet.toLocaleString()} VND**`;
     
     const embed = new EmbedBuilder()
         .setColor(color)
         .setTitle(`🃏 Bài Cào - ${result}!`)
-        .setDescription(`Cược: **${bet.toLocaleString()} ${nuocngot}**`)
+        .setDescription(`Cược: **${bet.toLocaleString()} VND**`)
         .addFields(
             { name: `👤 ${message.author.username}`, value: `${playerDisplay}\n${playerSpecial ? `**${playerSpecial}** + ` : ''}${getScoreName(playerScore)}`, inline: true },
             { name: `🤖 Bot`, value: `${botDisplay}\n${botSpecial ? `**${botSpecial}** + ` : ''}${getScoreName(botScore)}`, inline: true },
             { name: '💰 Kết quả', value: displayAmount, inline: false }
         )
-        .setFooter({ text: `Số dư: ${nuocngot} ${getMoney(message.author.id).toLocaleString()} VNĐ` });
+        .setFooter({ text: `Số dư: ${getMoney(message.author.id).toLocaleString()} VND` });
     
     return message.reply({ embeds: [embed] });
 }
 
-// ============ LỆNH .CAO @NGƯỜI (THÁCH ĐẤU) ============
+// ============ LỆNH .CAO @NGƯỜI (THÁCH ĐẤU - KHÔNG ICON, CHỈ VND) ============
 function handleChallenge(message) {
     const args = message.content.split(' ');
     args.shift();
@@ -359,7 +364,7 @@ function handleChallenge(message) {
     }
     
     const myBet = parseInt(args[args.length - 1]);
-    if (isNaN(myBet) || myBet < 100) return message.reply('❌ Cược tối thiểu 100 VNĐ!');
+    if (isNaN(myBet) || myBet < 100) return message.reply('❌ Cược tối thiểu 100 VND!');
     
     const reverseKey = targetUser.id + '_' + message.author.id;
     
@@ -371,7 +376,7 @@ function handleChallenge(message) {
         const p2Bet = myBet;
         
         if (!deductMoney(targetUser.id, p1Bet)) {
-            return message.reply(`❌ ${targetUser.username} không đủ tiền để chấp nhận thách đấu! Cần **${p1Bet.toLocaleString()} ${nuocngot}**`);
+            return message.reply(`❌ ${targetUser.username} không đủ tiền để chấp nhận thách đấu! Cần **${p1Bet.toLocaleString()} VND**`);
         }
         
         const totalPool = p1Bet + p2Bet;
@@ -439,7 +444,7 @@ function handleChallenge(message) {
         
         if (winner) { 
             addMoney(winner.id, totalPool); 
-            resultText += `\n💰 Nhận ${totalPool.toLocaleString()} ${nuocngot}`; 
+            resultText += `\n💰 Nhận ${totalPool.toLocaleString()} VND`; 
         } else { 
             addMoney(targetUser.id, p1Bet); 
             addMoney(message.author.id, p2Bet); 
@@ -449,7 +454,7 @@ function handleChallenge(message) {
         const embed = new EmbedBuilder()
             .setColor(color)
             .setTitle('⚔️ KẾT QUẢ THÁCH ĐẤU!')
-            .setDescription(targetUser.username + ' cược: ' + p1Bet.toLocaleString() + ` ${nuocngot}\n` + message.author.username + ' cược: ' + p2Bet.toLocaleString() + ` ${nuocngot}\n` + 'Tổng: ' + totalPool.toLocaleString() + ` ${nuocngot}`)
+            .setDescription(targetUser.username + ' cược: ' + p1Bet.toLocaleString() + ` VND\n` + message.author.username + ' cược: ' + p2Bet.toLocaleString() + ` VND\n` + 'Tổng: ' + totalPool.toLocaleString() + ` VND`)
             .addFields(
                 { name: '👤 ' + targetUser.username, value: p1Display + '\n' + (p1Special ? '**' + p1Special + '** + ' : '') + getScoreName(p1Score), inline: true },
                 { name: '👤 ' + message.author.username, value: p2Display + '\n' + (p2Special ? '**' + p2Special + '** + ' : '') + getScoreName(p2Score), inline: true },
@@ -461,7 +466,7 @@ function handleChallenge(message) {
     } else {
         // Tạo thách đấu mới
         if (!deductMoney(message.author.id, myBet)) {
-            return message.reply(`❌ Không đủ tiền để thách đấu! Số dư: ${nuocngot} **${getMoney(message.author.id).toLocaleString('vi-VN')} VNĐ**`);
+            return message.reply(`❌ Không đủ tiền để thách đấu! Số dư: ${nuocngot} **${getMoney(message.author.id).toLocaleString('vi-VN')} VND**`);
         }
         
         const challengeKey = message.author.id + '_' + targetUser.id;
@@ -478,11 +483,11 @@ function handleChallenge(message) {
                 const challenge = challenges.get(challengeKey);
                 challenges.delete(challengeKey);
                 addMoney(challenge.challenger, challenge.amount);
-                message.channel.send(`⏰ <@${challenge.challenger}> thách đấu <@${challenge.target}> nhưng hết hạn!\n💰 Đã hoàn **${challenge.amount.toLocaleString()} ${nuocngot}** cho <@${challenge.challenger}>`);
+                message.channel.send(`⏰ <@${challenge.challenger}> thách đấu <@${challenge.target}> nhưng hết hạn!\n💰 Đã hoàn **${challenge.amount.toLocaleString()} VND** cho <@${challenge.challenger}>`);
             }
         }, 60000);
         
-        return message.reply('⚔️ **THÁCH ĐẤU BÀI CÀO!**\n\n' + message.author.toString() + ' muốn đấu với ' + targetUser.toString() + `\n💰 ` + message.author.username + ' cược: ' + myBet.toLocaleString() + ` ${nuocngot}\n👉 ` + targetUser.toString() + ' gõ: `.cao @' + message.author.username + ' <tiền>` để chấp nhận!\n⏰ Hết hạn sau 60 giây!');
+        return message.reply('⚔️ **THÁCH ĐẤU BÀI CÀO!**\n\n' + message.author.toString() + ' muốn đấu với ' + targetUser.toString() + `\n💰 ` + message.author.username + ' cược: ' + myBet.toLocaleString() + ` VND\n👉 ` + targetUser.toString() + ' gõ: `.cao @' + message.author.username + ' <tiền>` để chấp nhận!\n⏰ Hết hạn sau 60 giây!');
     }
 }
 
