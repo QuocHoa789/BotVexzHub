@@ -35,7 +35,7 @@ const TOKEN = process.env.DISCORD_TOKEN || 'YOUR_BOT_TOKEN_HERE';
 const DATA_FILE = './data.json';
 
 // ============ ICON TIỀN ============
-const VN = "<:VN:1520349264700506293>";
+const nuocngot = "<:nuocngot:1520349264700506293>";
 
 // ============ LOAD DỮ LIỆU ============
 let data = {};
@@ -97,7 +97,7 @@ const boBai = [
     { id: "3_co", ten: "batraitim", emojiId: "1520358951068110980", diem: 3 },
     { id: "4_bich", ten: "bonlabai", emojiId: "1520358935381413950", diem: 4 },
     { id: "5_bich", ten: "namlabai", emojiId: "1520358941110833192", diem: 5 },
-    { id: "6_bich", ten: "saulabai", emojiId: "152035892888438845", diem: 6 },
+    { id: "6_bich", ten: "saucaulacbo", emojiId: "152035892888438845", diem: 6 },
     { id: "7_chuon", ten: "baycaulacbo", emojiId: "1520358937537282088", diem: 7 },
     { id: "8_co", ten: "tamco", emojiId: "1520358932319572039", diem: 8 },
     { id: "9_chuon", ten: "chincaulacbo", emojiId: "1520358939336638594", diem: 9 },
