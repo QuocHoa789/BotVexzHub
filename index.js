@@ -1,322 +1,319 @@
 const { Client, GatewayIntentBits, EmbedBuilder } = require('discord.js');
 const fs = require('fs');
-const express = require('express');
+const path = require('path');
 
-// ============ WEB SERVER (GIU CHO BOT KHONG BI RENDER NGU) ============
-const app = express();
-const PORT = process.env.PORT || 3000;
-
-app.get('/', (req, res) => {
-    res.send('Bot dang hoat dong!');
-});
-
-app.listen(PORT, () => {
-    console.log(`✅ Web server chay tai port ${PORT}`);
-});
-
-// ============ CAU HINH BOT ============
 const client = new Client({
-    intents: [
-        GatewayIntentBits.Guilds,
-        GatewayIntentBits.GuildMessages,
-        GatewayIntentBits.MessageContent
-    ]
+    intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMessages, GatewayIntentBits.MessageContent]
 });
 
-const TOKEN = process.env.DISCORD_TOKEN || 'YOUR_BOT_TOKEN_HERE';
-const DATA_FILE = './data.json';
-
-// ============ LOAD DU LIEU ============
-let data = {};
-if (fs.existsSync(DATA_FILE)) {
-    data = JSON.parse(fs.readFileSync(DATA_FILE, 'utf8'));
-} else {
-    data = { users: {} };
-}
-
-function saveData() {
-    fs.writeFileSync(DATA_FILE, JSON.stringify(data, null, 2));
-}
-
-function initUser(userId) {
-    if (!data.users[userId]) {
-        data.users[userId] = {
-            money: 10000,
-            bank: 0,
-            lastDaily: 0
-        };
-        saveData();
-    }
-}
-
-// ============ EMOJI ID ============
-const quanchuon = "<:quanchuon:1520358957041057883>";
-const vuacacclb = "<:vuacacclb:1520358954805362688>";
-const saucaulacbo = "<:saucaulacbo:152035892888438845>";
-const batimtim = "<:batimtim:1520358951068110980>";
-const aceofspades = "<:aceofspades:1520358948832673852>";
-const nuhoangcuatraitim = "<:nuhoangcua traitim:1520358946517422232>";
-const tenofhearts = "<:tenofhearts:1520358944931844166>";
-const haitraitim = "<:haitraitim:1520358943078219846>";
-const namlabai = "<:namlabai:1520358941110833192>";
-const chinchlb = "<:chinclb:1520358939336638594>";
-const bayco = "<:bayco:1520358937537282088>";
-const bonlabai = "<:bonlabai:1520358935381413950>";
-const tamco = "<:tamco:1520358932319572039>";
-const VN = "<:VN:1520349264700506293>";
-
-const cardEmojis = {
-    'A♠': aceofspades,
-    '2♥': haitraitim,
-    '3♥': batimtim,
-    '4♥': bonlabai,
-    '5♥': namlabai,
-    '10♥': tenofhearts,
-    'Q♥': nuhoangcuatraitim,
-    '6♣': saucaulacbo,
-    '7♣': bayco,
-    '8♣': tamco,
-    '9♣': chinchlb,
-    'K♣': vuacacclb,
-    '2♣': quanchuon
+// ========== CONFIG ==========
+const CONFIG = {
+    token: process.env.TOKEN || "YOUR_BOT_TOKEN_HERE",
+    dataFile: path.join(__dirname, 'userdata.json')
 };
 
-// ============ HAM HO TRO ============
-function formatTime(ms) {
-    let seconds = Math.floor(ms / 1000);
-    let hours = Math.floor(seconds / 3600);
-    seconds %= 3600;
-    let minutes = Math.floor(seconds / 60);
-    seconds %= 60;
-    return `${hours} gio ${minutes} phut ${seconds} giay`;
+// ========== ICON TIỀN ==========
+const MONEY_ICON = '<:VN:1520349264700506293>';
+
+// ========== BỘ BÀI ==========
+const boBai = [
+    { id: "2_co", ten: "haitraitim", emojiId: "1520358943078219846", diem: 2 },
+    { id: "3_co", ten: "batraitim", emojiId: "152035895106810980", diem: 3 },
+    { id: "4_bich", ten: "bonlabai", emojiId: "1520358935381413950", diem: 4 },
+    { id: "5_bich", ten: "namlabai", emojiId: "1520358941110833192", diem: 5 },
+    { id: "6_bich", ten: "saulabai", emojiId: "152035892888438845", diem: 6 },
+    { id: "7_chuon", ten: "baycaulacbo", emojiId: "1520358937537282088", diem: 7 },
+    { id: "8_co", ten: "tamco", emojiId: "1520358932319572039", diem: 8 },
+    { id: "9_chuon", ten: "chincaulacbo", emojiId: "1520358939336638594", diem: 9 },
+    { id: "10_co", ten: "tenofhearts", emojiId: "1520358944931844166", diem: 10 },
+    { id: "J_chuon", ten: "jackofclubs1", emojiId: "1520358954805362688", diem: 10 },
+    { id: "Q_co", ten: "nuhoangcuatraitim", emojiId: "1520358946517422232", diem: 10 },
+    { id: "K_chuon", ten: "vuacuacaccaulacbo", emojiId: "1520358957041057883", diem: 10 },
+    { id: "A_bich", ten: "aceofspades", emojiId: "1520358948832673852", diem: 11 }
+];
+
+// ========== CLASS CARDGAME ==========
+class CardGame {
+    constructor() { this.deck = []; this.resetDeck(); }
+    resetDeck() { this.deck = [...boBai]; this.shuffle(); }
+    shuffle() { for (let i = this.deck.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [this.deck[i], this.deck[j]] = [this.deck[j], this.deck[i]]; } }
+    drawCard() { if (this.deck.length === 0) this.resetDeck(); return this.deck.pop(); }
+    drawHand(numCards) { return Array.from({ length: numCards }, () => this.drawCard()); }
 }
 
-function createDeck() {
-    const suits = ['♠', '♥', '♣', '♦'];
-    const values = ['2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K', 'A'];
-    const deck = [];
-    for (let suit of suits) {
-        for (let value of values) {
-            deck.push(value + suit);
-        }
-    }
-    return deck;
+// ========== LOGIC BÀI CÀO ==========
+function calculateScore(cards) { let total = 0; for (let card of cards) total += card.diem; return total % 10; }
+function getScoreName(score) { const names = { 0: '0 Điểm', 1: '1 Điểm', 2: '2 Điểm', 3: '3 Điểm', 4: '4 Điểm', 5: '5 Điểm', 6: '6 Điểm', 7: '7 Điểm', 8: '8 Điểm', 9: '9 Điểm (Cào!)' }; return names[score] || `${score} Điểm`; }
+function checkSpecial(cards) { const ids = cards.map(c => c.id.split('_')[0]); const uniqueIds = new Set(ids); if (uniqueIds.size === 1) return 'SÁP 🔥'; if (ids.every(v => ['J', 'Q', 'K'].includes(v))) return '3 TÂY 👑'; return null; }
+function getCardDisplay(card) { return `<:${card.ten}:${card.emojiId}>`; }
+
+// ========== QUẢN LÝ TIỀN ==========
+let userMoney = new Map();
+
+function loadData() {
+    try {
+        if (fs.existsSync(CONFIG.dataFile)) {
+            const rawData = fs.readFileSync(CONFIG.dataFile, 'utf8');
+            const parsedData = JSON.parse(rawData);
+            userMoney = new Map(Object.entries(parsedData));
+            console.log(`✅ Đã tải dữ liệu ${userMoney.size} người dùng!`);
+        } else { saveData(); }
+    } catch (error) { console.error('❌ Lỗi tải dữ liệu:', error.message); userMoney = new Map(); }
 }
 
-function shuffleDeck(deck) {
-    for (let i = deck.length - 1; i > 0; i--) {
-        const j = Math.floor(Math.random() * (i + 1));
-        [deck[i], deck[j]] = [deck[j], deck[i]];
-    }
-    return deck;
-}
+function saveData() { try { const obj = Object.fromEntries(userMoney); fs.writeFileSync(CONFIG.dataFile, JSON.stringify(obj, null, 2), 'utf8'); } catch (error) { console.error('❌ Lỗi lưu dữ liệu:', error.message); } }
 
-function calculateBaiCaoScore(cards) {
-    let total = 0;
-    for (let card of cards) {
-        const value = card.slice(0, -1);
-        if (['J', 'Q', 'K'].includes(value)) total += 0;
-        else if (value === 'A') total += 1;
-        else total += parseInt(value);
-    }
-    return total % 10;
-}
+function getMoney(userId) { if (!userMoney.has(userId)) { userMoney.set(userId, 10000); saveData(); } return userMoney.get(userId); }
+function addMoney(userId, amount) { const current = getMoney(userId); userMoney.set(userId, current + amount); saveData(); }
+function deductMoney(userId, amount) { const current = getMoney(userId); if (current < amount) return false; userMoney.set(userId, current - amount); saveData(); return true; }
 
-function getCardEmoji(card) {
-    return cardEmojis[card] || '';
-}
-
-function evaluatePockerHand(cards) {
-    const values = { '2': 2, '3': 3, '4': 4, '5': 5, '6': 6, '7': 7, '8': 8, '9': 9, '10': 10, 'J': 11, 'Q': 12, 'K': 13, 'A': 14 };
-    const card1Value = values[cards[0].slice(0, -1)];
-    const card2Value = values[cards[1].slice(0, -1)];
-    const card1Suit = cards[0].slice(-1);
-    const card2Suit = cards[1].slice(-1);
-    
-    if (card1Value === card2Value) return { name: 'DOI', value: card1Value + 20 };
-    if (card1Suit === card2Suit) return { name: 'CUNG CHAT', value: Math.max(card1Value, card2Value) + 10 };
-    return { name: 'CAO', value: Math.max(card1Value, card2Value) };
-}
-
-// ============ LENH .MONEY ============
-function handleMoney(message) {
-    const userId = message.author.id;
-    initUser(userId);
-    const money = data.users[userId].money;
-    
-    const embed = new EmbedBuilder()
-        .setColor(0x00FF00)
-        .setTitle('💰 SO TIEN CUA BAN')
-        .setDescription(`${VN} **Tien mat:** $${money.toLocaleString()}`)
-        .setTimestamp();
-    
-    message.channel.send({ embeds: [embed] });
-}
-
-// ============ LENH .BANK ============
-function handleBank(message) {
-    const userId = message.author.id;
-    initUser(userId);
-    const bank = data.users[userId].bank;
-    
-    const embed = new EmbedBuilder()
-        .setColor(0xFFD700)
-        .setTitle('🏦 NGAN HANG CUA BAN')
-        .setDescription(`${VN} **So du ngan hang:** $${bank.toLocaleString()}`)
-        .setTimestamp();
-    
-    message.channel.send({ embeds: [embed] });
-}
-
-// ============ LENH .DAILY (1h36p = 5760000ms) ============
-function handleDaily(message) {
-    const userId = message.author.id;
-    initUser(userId);
-    
+// ========== DAILY COOLDOWN ==========
+const dailyCooldown = new Map();
+function canUseDaily(userId) {
     const now = Date.now();
-    const cooldown = 5760000;
-    const lastDaily = data.users[userId].lastDaily || 0;
-    const timeLeft = cooldown - (now - lastDaily);
-    
-    if (timeLeft > 0) {
-        return message.channel.send(`⏳ Ban da nhan daily roi! Vui long doi **${formatTime(timeLeft)}** de nhan tiep.`);
+    const lastUsed = dailyCooldown.get(userId) || 0;
+    const cooldownTime = 5400000;
+    if (now - lastUsed < cooldownTime) {
+        const remaining = cooldownTime - (now - lastUsed);
+        const hours = Math.floor(remaining / 3600000);
+        const minutes = Math.floor((remaining % 3600000) / 60000);
+        const seconds = Math.floor((remaining % 60000) / 1000);
+        return { canUse: false, timeStr: `${hours}h ${minutes}m ${seconds}s` };
     }
-    
-    const reward = 5000;
-    data.users[userId].money += reward;
-    data.users[userId].lastDaily = now;
-    saveData();
-    
-    const embed = new EmbedBuilder()
-        .setColor(0x00BFFF)
-        .setTitle('🎁 NHAN DAILY')
-        .setDescription(`${VN} Chuc mung! Ban da nhan duoc **$${reward.toLocaleString()}**\n${VN} **Tien hien tai:** $${data.users[userId].money.toLocaleString()}`)
-        .setFooter({ text: 'Cooldown: 1 gio 36 phut' })
-        .setTimestamp();
-    
-    message.channel.send({ embeds: [embed] });
+    return { canUse: true };
 }
 
-// ============ LENH .BAICAO ============
-function handleBaiCao(message, args) {
-    const userId = message.author.id;
-    initUser(userId);
-    
-    if (!args[0]) return message.channel.send('❌ Nhap so tien cuoc! VD: `.baicao 500`');
-    
-    const betAmount = parseInt(args[0]);
-    if (isNaN(betAmount) || betAmount <= 0) return message.channel.send('❌ So tien khong hop le!');
-    if (betAmount > data.users[userId].money) return message.channel.send(`❌ Khong du tien! Ban chi co ${VN} $${data.users[userId].money.toLocaleString()}`);
-    
-    let deck = shuffleDeck(createDeck());
-    const playerCards = [deck.pop(), deck.pop(), deck.pop()];
-    const dealerCards = [deck.pop(), deck.pop(), deck.pop()];
-    
-    const playerScore = calculateBaiCaoScore(playerCards);
-    const dealerScore = calculateBaiCaoScore(dealerCards);
-    
-    let result = '';
-    if (playerScore > dealerScore) {
-        result = '🎉 THANG!';
-        data.users[userId].money += betAmount;
-    } else if (playerScore < dealerScore) {
-        result = '💀 THUA!';
-        data.users[userId].money -= betAmount;
-    } else {
-        result = '🤝 HOA! (Nha cai thang)';
-        data.users[userId].money -= betAmount;
-    }
-    saveData();
-    
-    const playerCardsStr = playerCards.map(c => getCardEmoji(c)).filter(e => e).join(' ');
-    const dealerCardsStr = dealerCards.map(c => getCardEmoji(c)).filter(e => e).join(' ');
-    
+// ========== THÁCH ĐẤU ==========
+const challenges = new Map();
+
+// ========== CÁC HÀM XỬ LÝ LỆNH ==========
+
+// ===== LỆNH .help =====
+function handleHelp(message) {
     const embed = new EmbedBuilder()
-        .setColor(playerScore > dealerScore ? 0x00FF00 : 0xFF0000)
-        .setTitle('🃏 BAI CAO')
+        .setColor('#0099FF')
+        .setTitle('📜 DANH SÁCH LỆNH BOT BÀI CÀO')
+        .setDescription('Chào mừng bạn đến với Bot Bài Cào! Dưới đây là các lệnh có sẵn:')
         .addFields(
-            { name: '📌 Bai cua ban:', value: `${playerCardsStr}\n**Diem:** ${playerScore}`, inline: true },
-            { name: '🤖 Bai nha cai:', value: `${dealerCardsStr}\n**Diem:** ${dealerScore}`, inline: true },
-            { name: '\u200b', value: '\u200b', inline: true },
-            { name: '💵 Tien cuoc:', value: `${VN} $${betAmount.toLocaleString()}`, inline: true },
-            { name: '📊 Ket qua:', value: result, inline: true },
-            { name: '💰 So du:', value: `${VN} $${data.users[userId].money.toLocaleString()}`, inline: true }
+            { name: '💰 `.money`', value: 'Kiểm tra số dư tài khoản của bạn', inline: false },
+            { name: '🎁 `.daily`', value: 'Nhận 5,000 VNĐ miễn phí (1 lần mỗi 1h30p)', inline: false },
+            { name: '🏦 `.bank @user <số_tiền>`', value: 'Chuyển tiền cho người khác (tối thiểu 100 VNĐ)\n**Ví dụ:** `.bank @user 1000`', inline: false },
+            { name: '🃏 `.cao <số_tiền>`', value: 'Chơi bài cào với Bot (cược tối thiểu 100 VNĐ)\n**Ví dụ:** `.cao 500`', inline: false },
+            { name: '⚔️ `.cao @user <số_tiền>`', value: 'Thách đấu người khác chơi bài cào\n**Ví dụ:** `.cao @user 1000`\n⏰ Đối thủ có 60 giây để chấp nhận', inline: false }
+        )
+        .addFields({
+            name: '🎯 Luật chơi Bài Cào',
+            value: '• Mỗi người nhận 3 lá bài\n• Điểm = tổng điểm 3 lá % 10\n• **Sáp 🔥**: 3 lá giống nhau (thắng tuyệt đối)\n• **3 Tây 👑**: J, Q, K (thắng thường)\n• Điểm cao hơn thắng',
+            inline: false
+        })
+        .setFooter({ text: 'Chúc bạn chơi vui vẻ! 🎉' })
+        .setTimestamp();
+    return message.reply({ embeds: [embed] });
+}
+
+// ===== LỆNH .money =====
+function handleMoney(message) {
+    const money = getMoney(message.author.id);
+    const embed = new EmbedBuilder()
+        .setColor('#00FF00')
+        .setTitle(`💰 ${message.author.username}`)
+        .setDescription(`${MONEY_ICON} **${money.toLocaleString('vi-VN')} VNĐ**`);
+    return message.reply({ embeds: [embed] });
+}
+
+// ===== LỆNH .daily =====
+function handleDaily(message) {
+    const check = canUseDaily(message.author.id);
+    if (!check.canUse) return message.reply(`⏰ Bạn đã nhận daily rồi! Hãy đợi **${check.timeStr}** nữa.`);
+    dailyCooldown.set(message.author.id, Date.now());
+    addMoney(message.author.id, 5000);
+    const money = getMoney(message.author.id);
+    return message.reply(`🎁 Nhận **5,000 ${MONEY_ICON}** thành công!\n💰 Số dư: ${MONEY_ICON} **${money.toLocaleString('vi-VN')} VNĐ**\n⏰ Lần sau: **1h30p** nữa`);
+}
+
+// ===== LỆNH .bank =====
+function handleBank(message) {
+    const args = message.content.split(' ');
+    args.shift();
+    const targetUser = message.mentions.users.first();
+    if (!targetUser) return message.reply('❌ Vui lòng tag người nhận! `.bank @user <số_tiền>`');
+    if (targetUser.id === message.author.id) return message.reply('❌ Không thể chuyển cho chính mình!');
+    if (targetUser.bot) return message.reply('❌ Không thể chuyển cho bot!');
+    const mentionIndex = args.findIndex(a => a.includes(targetUser.id));
+    if (mentionIndex !== -1) args.splice(mentionIndex, 1);
+    const amount = parseInt(args[0]);
+    if (isNaN(amount) || amount < 100) return message.reply('❌ Số tiền chuyển tối thiểu **100 VNĐ**!');
+    if (!deductMoney(message.author.id, amount)) {
+        const currentMoney = getMoney(message.author.id);
+        return message.reply(`❌ Không đủ tiền! Số dư: ${MONEY_ICON} **${currentMoney.toLocaleString('vi-VN')} VNĐ**`);
+    }
+    addMoney(targetUser.id, amount);
+    const embed = new EmbedBuilder()
+        .setColor('#0099FF')
+        .setTitle('🏦 Chuyển Tiền Thành Công!')
+        .setDescription(`${message.author} ──💸 **${amount.toLocaleString('vi-VN')} ${MONEY_ICON}**──> ${targetUser}`)
+        .addFields(
+            { name: `💰 ${message.author.username}`, value: `Còn: ${MONEY_ICON} **${getMoney(message.author.id).toLocaleString('vi-VN')} VNĐ**`, inline: true },
+            { name: `💰 ${targetUser.username}`, value: `Có: ${MONEY_ICON} **${getMoney(targetUser.id).toLocaleString('vi-VN')} VNĐ**`, inline: true }
         )
         .setTimestamp();
-    
-    message.channel.send({ embeds: [embed] });
+    return message.reply({ embeds: [embed] });
 }
 
-// ============ LENH .POCKER ============
-function handlePocker(message, args) {
-    const userId = message.author.id;
-    initUser(userId);
-    
-    if (!args[0]) return message.channel.send('❌ Nhap so tien cuoc! VD: `.pocker 500`');
-    
-    const betAmount = parseInt(args[0]);
-    if (isNaN(betAmount) || betAmount <= 0) return message.channel.send('❌ So tien khong hop le!');
-    if (betAmount > data.users[userId].money) return message.channel.send(`❌ Khong du tien! Ban chi co ${VN} $${data.users[userId].money.toLocaleString()}`);
-    
-    let deck = shuffleDeck(createDeck());
-    const playerCards = [deck.pop(), deck.pop()];
-    const dealerCards = [deck.pop(), deck.pop()];
-    
-    const playerStrength = evaluatePockerHand(playerCards);
-    const dealerStrength = evaluatePockerHand(dealerCards);
-    
-    let result = '';
-    if (playerStrength.value > dealerStrength.value) {
-        result = '🎉 THANG!';
-        data.users[userId].money += betAmount;
-    } else if (playerStrength.value < dealerStrength.value) {
-        result = '💀 THUA!';
-        data.users[userId].money -= betAmount;
+// ===== LỆNH .cao (Chơi với bot) =====
+function handlePlayWithBot(message) {
+    const args = message.content.split(' ');
+    const bet = parseInt(args[1]);
+    if (isNaN(bet) || bet < 100) return message.reply('❌ Cược tối thiểu **100 VNĐ**!');
+    if (getMoney(message.author.id) < bet) return message.reply(`❌ Không đủ tiền! Số dư: ${MONEY_ICON} **${getMoney(message.author.id).toLocaleString('vi-VN')} VNĐ**`);
+    deductMoney(message.author.id, bet);
+    const game = new CardGame();
+    const playerCards = game.drawHand(3);
+    const botCards = game.drawHand(3);
+    const playerScore = calculateScore(playerCards);
+    const botScore = calculateScore(botCards);
+    const playerSpecial = checkSpecial(playerCards);
+    const botSpecial = checkSpecial(botCards);
+    const playerDisplay = playerCards.map(c => getCardDisplay(c)).join(' ');
+    const botDisplay = botCards.map(c => getCardDisplay(c)).join(' ');
+    let result = '', color = '', winAmount = 0;
+    if (playerSpecial && !botSpecial) { result = 'THẮNG (Sáp!)'; color = '#FFD700'; winAmount = bet * 2; }
+    else if (!playerSpecial && botSpecial) { result = 'THUA'; color = '#FF0000'; winAmount = 0; }
+    else if (playerSpecial && botSpecial) {
+        if (playerSpecial === botSpecial) { result = 'HÒA'; color = '#FFFF00'; winAmount = bet; }
+        else { if (playerScore > botScore) { result = 'THẮNG'; color = '#FFD700'; winAmount = bet * 2; } else { result = 'THUA'; color = '#FF0000'; winAmount = 0; } }
     } else {
-        result = '🤝 HOA!';
+        if (playerScore > botScore) { result = 'THẮNG'; color = '#FFD700'; winAmount = bet * 2; }
+        else if (playerScore < botScore) { result = 'THUA'; color = '#FF0000'; winAmount = 0; }
+        else { result = 'HÒA'; color = '#FFFF00'; winAmount = bet; }
     }
-    saveData();
-    
-    const playerCardsStr = playerCards.map(c => getCardEmoji(c)).filter(e => e).join(' ');
-    const dealerCardsStr = dealerCards.map(c => getCardEmoji(c)).filter(e => e).join(' ');
-    
+    if (winAmount > 0) addMoney(message.author.id, winAmount);
+    const displayAmount = winAmount > bet ? `+ **${winAmount.toLocaleString()} ${MONEY_ICON}**` : winAmount === bet ? `Hoàn **${bet.toLocaleString()} ${MONEY_ICON}**` : `Mất **${bet.toLocaleString()} ${MONEY_ICON}**`;
     const embed = new EmbedBuilder()
-        .setColor(playerStrength.value > dealerStrength.value ? 0x00FF00 : 0xFF0000)
-        .setTitle('🃏 POKER')
+        .setColor(color)
+        .setTitle(`🃏 Bài Cào - ${result}!`)
+        .setDescription(`Cược: **${bet.toLocaleString()} ${MONEY_ICON}**`)
         .addFields(
-            { name: '📌 Bai cua ban:', value: `${playerCardsStr}\n**Suc manh:** ${playerStrength.name}`, inline: true },
-            { name: '🤖 Bai nha cai:', value: `${dealerCardsStr}\n**Suc manh:** ${dealerStrength.name}`, inline: true },
-            { name: '\u200b', value: '\u200b', inline: true },
-            { name: '💵 Tien cuoc:', value: `${VN} $${betAmount.toLocaleString()}`, inline: true },
-            { name: '📊 Ket qua:', value: result, inline: true },
-            { name: '💰 So du:', value: `${VN} $${data.users[userId].money.toLocaleString()}`, inline: true }
+            { name: `👤 ${message.author.username}`, value: `${playerDisplay}\n${playerSpecial ? `**${playerSpecial}** + ` : ''}${getScoreName(playerScore)}`, inline: true },
+            { name: `🤖 Bot`, value: `${botDisplay}\n${botSpecial ? `**${botSpecial}** + ` : ''}${getScoreName(botScore)}`, inline: true },
+            { name: '💰 Kết quả', value: displayAmount, inline: false }
         )
-        .setTimestamp();
-    
-    message.channel.send({ embeds: [embed] });
+        .setFooter({ text: `Số dư: ${MONEY_ICON} ${getMoney(message.author.id).toLocaleString()} VNĐ` });
+    return message.reply({ embeds: [embed] });
 }
 
-// ============ SU KIEN BOT ============
+// ===== LỆNH .cao @người (Thách đấu) =====
+function handleChallenge(message) {
+    const args = message.content.split(' ');
+    args.shift();
+    const targetUser = message.mentions.users.first();
+    if (!targetUser || targetUser.bot || targetUser.id === message.author.id) return message.reply('❌ Tag người thật để thách đấu!');
+    const myBet = parseInt(args[args.length - 1]);
+    if (isNaN(myBet) || myBet < 100) return message.reply('❌ Cược tối thiểu 100 VNĐ!');
+    
+    const reverseKey = targetUser.id + '_' + message.author.id;
+    if (challenges.has(reverseKey)) {
+        const existingChallenge = challenges.get(reverseKey);
+        challenges.delete(reverseKey);
+        const p1Bet = existingChallenge.amount;
+        const p2Bet = myBet;
+        
+        if (!deductMoney(targetUser.id, p1Bet)) {
+            return message.reply(`❌ ${targetUser.username} không đủ tiền để chấp nhận thách đấu! Cần **${p1Bet.toLocaleString()} ${MONEY_ICON}**`);
+        }
+        
+        const totalPool = p1Bet + p2Bet;
+        const game = new CardGame();
+        const p1Cards = game.drawHand(3);
+        const p2Cards = game.drawHand(3);
+        const p1Score = calculateScore(p1Cards);
+        const p2Score = calculateScore(p2Cards);
+        const p1Special = checkSpecial(p1Cards);
+        const p2Special = checkSpecial(p2Cards);
+        const p1Display = p1Cards.map(c => getCardDisplay(c)).join(' ');
+        const p2Display = p2Cards.map(c => getCardDisplay(c)).join(' ');
+        let winner = null, resultText = '', color = '';
+        if (p1Special && !p2Special) { winner = targetUser; color = '#FFD700'; resultText = targetUser.username + ' THẮNG (Sáp!)'; }
+        else if (!p1Special && p2Special) { winner = message.author; color = '#FFD700'; resultText = message.author.username + ' THẮNG (Sáp!)'; }
+        else if (p1Special && p2Special) {
+            if (p1Special === p2Special) {
+                if (p1Score > p2Score) { winner = targetUser; color = '#FFD700'; resultText = targetUser.username + ' THẮNG!'; }
+                else if (p2Score > p1Score) { winner = message.author; color = '#FFD700'; resultText = message.author.username + ' THẮNG!'; }
+                else { color = '#FFFF00'; resultText = 'HÒA!'; }
+            } else {
+                if (p1Special === 'SÁP 🔥') { winner = targetUser; color = '#FFD700'; resultText = targetUser.username + ' THẮNG (Sáp)!'; }
+                else { winner = message.author; color = '#FFD700'; resultText = message.author.username + ' THẮNG (Sáp)!'; }
+            }
+        } else {
+            if (p1Score > p2Score) { winner = targetUser; color = '#FFD700'; resultText = targetUser.username + ' THẮNG!'; }
+            else if (p2Score > p1Score) { winner = message.author; color = '#FFD700'; resultText = message.author.username + ' THẮNG!'; }
+            else { color = '#FFFF00'; resultText = 'HÒA!'; }
+        }
+        if (winner) { addMoney(winner.id, totalPool); resultText += `\n💰 Nhận ${totalPool.toLocaleString()} ${MONEY_ICON}`; }
+        else { addMoney(targetUser.id, p1Bet); addMoney(message.author.id, p2Bet); resultText += '\n💰 Hoàn cược!'; }
+        const embed = new EmbedBuilder()
+            .setColor(color)
+            .setTitle('⚔️ KẾT QUẢ THÁCH ĐẤU!')
+            .setDescription(targetUser.username + ' cược: ' + p1Bet.toLocaleString() + ` ${MONEY_ICON}\n` + message.author.username + ' cược: ' + p2Bet.toLocaleString() + ` ${MONEY_ICON}\n` + 'Tổng: ' + totalPool.toLocaleString() + ` ${MONEY_ICON}`)
+            .addFields(
+                { name: '👤 ' + targetUser.username, value: p1Display + '\n' + (p1Special ? '**' + p1Special + '** + ' : '') + getScoreName(p1Score), inline: true },
+                { name: '👤 ' + message.author.username, value: p2Display + '\n' + (p2Special ? '**' + p2Special + '** + ' : '') + getScoreName(p2Score), inline: true },
+                { name: '🏆 Kết quả', value: resultText, inline: false }
+            )
+            .setTimestamp();
+        return message.reply({ content: targetUser.toString(), embeds: [embed] });
+    } else {
+        if (!deductMoney(message.author.id, myBet)) {
+            return message.reply(`❌ Không đủ tiền để thách đấu! Số dư: ${MONEY_ICON} **${getMoney(message.author.id).toLocaleString('vi-VN')} VNĐ**`);
+        }
+        
+        const challengeKey = message.author.id + '_' + targetUser.id;
+        challenges.set(challengeKey, { 
+            challenger: message.author.id, 
+            target: targetUser.id, 
+            amount: myBet, 
+            time: Date.now(),
+            channel: message.channel.id 
+        });
+        
+        setTimeout(() => { 
+            if (challenges.has(challengeKey)) {
+                const challenge = challenges.get(challengeKey);
+                challenges.delete(challengeKey);
+                addMoney(challenge.challenger, challenge.amount);
+                message.channel.send(`⏰ <@${challenge.challenger}> thách đấu <@${challenge.target}> nhưng hết hạn!\n💰 Đã hoàn **${challenge.amount.toLocaleString()} ${MONEY_ICON}** cho <@${challenge.challenger}>`);
+            }
+        }, 60000);
+        
+        return message.reply('⚔️ **THÁCH ĐẤU BÀI CÀO!**\n\n' + message.author.toString() + ' muốn đấu với ' + targetUser.toString() + `\n💰 ` + message.author.username + ' cược: ' + myBet.toLocaleString() + ` ${MONEY_ICON}\n👉 ` + targetUser.toString() + ' gõ: `.cao @' + message.author.username + ' <tiền>` để chấp nhận!\n⏰ Hết hạn sau 60 giây!');
+    }
+}
+
+// ========== BOT EVENTS ==========
+// ✅ FIX: Dùng 'clientReady' thay vì 'ready' để tránh warning
 client.once('clientReady', () => {
-    console.log(`✅ Da dang nhap: ${client.user.tag}`);
+    console.log(`✅ Da dang nhap: ${client.user.tag} - Bot Bai Cao!`);
+    loadData();
 });
 
 client.on('messageCreate', async (message) => {
     if (message.author.bot) return;
-    if (!message.content.startsWith('.')) return;
-    
-    const args = message.content.slice(1).trim().split(/ +/);
-    const command = args.shift().toLowerCase();
-    
-    switch(command) {
-        case 'money': handleMoney(message); break;
-        case 'bank': handleBank(message); break;
-        case 'daily': handleDaily(message); break;
-        case 'baicao': handleBaiCao(message, args); break;
-        case 'pocker': handlePocker(message, args); break;
-    }
+    const content = message.content.trim().toLowerCase();
+    if (content === '.help') return handleHelp(message);
+    if (content === '.money') return handleMoney(message);
+    if (content === '.daily') return handleDaily(message);
+    if (content.startsWith('.bank')) return handleBank(message);
+    if (content.startsWith('.cao') && !message.mentions.users.size) return handlePlayWithBot(message);
+    if (content.startsWith('.cao') && message.mentions.users.size) return handleChallenge(message);
 });
 
-client.login(TOKEN).catch(err => {
-    console.error('❌ Loi dang nhap:', err);
+// ========== XỬ LÝ LỖI GLOBAL ==========
+process.on('unhandledRejection', (error) => {
+    console.error('❌ Unhandled Rejection:', error);
 });
+
+process.on('uncaughtException', (error) => {
+    console.error('❌ Uncaught Exception:', error);
+});
+
+client.login(CONFIG.token);
