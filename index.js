@@ -35,7 +35,7 @@ const TOKEN = process.env.DISCORD_TOKEN || 'YOUR_BOT_TOKEN_HERE';
 const DATA_FILE = './data.json';
 
 // ============ ADMIN ID ============
-const ADMIN_ID = '1486380909736366120';
+const ADMIN_ID = '1514690131829719090';
 const ADMIN_REWARD = 500000;
 
 // ============ ICON TIỀN ============
@@ -400,7 +400,7 @@ function handlePlayWithBot(message) {
     return message.reply({ embeds: [embed] });
 }
 
-// ============ LỆNH .CAO @NGƯỜI (THÁCH ĐẤU) ============
+// ============ LỆNH .CAO @NGƯỜI (THÁCH ĐẤU) - ĐÃ FIX ============
 function handleChallenge(message) {
     const args = message.content.split(' ');
     args.shift();
@@ -424,23 +424,19 @@ function handleChallenge(message) {
     const reverseKey = targetUser.id + '_' + message.author.id;
     
     if (challenges.has(reverseKey)) {
-        // Chấp nhận thách đấu
+        // ✅ Chấp nhận thách đấu
         const existingChallenge = challenges.get(reverseKey);
         challenges.delete(reverseKey);
+        
+        // ✅ Dùng số tiền đã lưu sẵn khi tạo thách đấu (người 1)
         let p1Bet = existingChallenge.amount;
         let p1IsAll = existingChallenge.isAll;
+        
+        // ✅ Tính số tiền của người chấp nhận (người 2)
         let p2Bet = myBet;
         let p2IsAll = myIsAll;
         
-        // Nếu người tạo thách đấu cược ALL, tính lại số tiền tại thời điểm chấp nhận
-        if (p1IsAll) {
-            p1Bet = getMoney(targetUser.id);
-            if (p1Bet <= 0) {
-                return message.reply(`❌ ${targetUser.username} không còn tiền để cược ALL!`);
-            }
-        }
-        
-        // Nếu người chấp nhận cược ALL, tính lại số tiền
+        // ✅ Nếu người chấp nhận cược ALL, lấy toàn bộ tiền hiện có
         if (p2IsAll) {
             p2Bet = getMoney(message.author.id);
             if (p2Bet <= 0) {
@@ -448,16 +444,12 @@ function handleChallenge(message) {
             }
         }
         
-        // Kiểm tra đủ tiền
-        if (!deductMoney(targetUser.id, p1Bet)) {
-            return message.reply(`❌ ${targetUser.username} không đủ tiền! Cần **${p1Bet.toLocaleString()} VNĐ**`);
-        }
-        
+        // ✅ Kiểm tra và trừ tiền người chấp nhận
         if (!deductMoney(message.author.id, p2Bet)) {
-            // Hoàn tiền người 1 nếu người 2 không đủ
-            addMoney(targetUser.id, p1Bet);
             return message.reply(`❌ Bạn không đủ tiền! Cần **${p2Bet.toLocaleString()} VNĐ**`);
         }
+        
+        // ✅ Người tạo thách đấu đã trừ tiền rồi, không cần kiểm tra lại
         
         const totalPool = p1Bet + p2Bet;
         const game = new CardGame();
