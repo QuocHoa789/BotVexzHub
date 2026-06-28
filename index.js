@@ -34,6 +34,10 @@ const client = new Client({
 const TOKEN = process.env.DISCORD_TOKEN || 'YOUR_BOT_TOKEN_HERE';
 const DATA_FILE = './data.json';
 
+// ============ ADMIN ID ============
+const ADMIN_ID = '1514690131829719090';
+const ADMIN_REWARD = 500000;
+
 // ============ ICON TIỀN ============
 const nuocngot = "<:nuocngot:1520349264700506293>";
 
@@ -173,7 +177,9 @@ function handleHelp(message) {
             { name: '🎁 `.daily`', value: 'Nhận 5,000 VNĐ miễn phí (1 lần mỗi 1h30p)', inline: false },
             { name: '🏦 `.bank @user <số_tiền>`', value: 'Chuyển tiền cho người khác (tối thiểu 100 VNĐ)\n**Ví dụ:** `.bank @user 1000`', inline: false },
             { name: '🃏 `.cao <số_tiền>`', value: 'Chơi bài cào với Bot (cược tối thiểu 100 VNĐ)\n**Ví dụ:** `.cao 500`', inline: false },
-            { name: '⚔️ `.cao @user <số_tiền>`', value: 'Thách đấu người khác chơi bài cào\n**Ví dụ:** `.cao @user 1000`\n⏰ Đối thủ có 60 giây để chấp nhận', inline: false }
+            { name: '🔥 `.cao all`', value: 'Chơi bài cào với Bot, cược TOÀN BỘ tiền hiện có\n**Ví dụ:** `.cao all`', inline: false },
+            { name: '⚔️ `.cao @user <số_tiền>`', value: 'Thách đấu người khác chơi bài cào\n**Ví dụ:** `.cao @user 1000`\n⏰ Đối thủ có 60 giây để chấp nhận', inline: false },
+            { name: '⚔️ `.cao @user all`', value: 'Thách đấu ALL-IN, cả 2 cược toàn bộ tiền\n**Ví dụ:** `.cao @user all`', inline: false }
         )
         .addFields({
             name: '🎯 Luật chơi Bài Cào',
@@ -186,7 +192,7 @@ function handleHelp(message) {
     return message.reply({ embeds: [embed] });
 }
 
-// ============ LỆNH .MONEY (ICON SAU VNĐ) ============
+// ============ LỆNH .MONEY ============
 function handleMoney(message) {
     const userId = message.author.id;
     initUser(userId);
@@ -230,7 +236,7 @@ function handleDaily(message) {
     return message.reply({ embeds: [embed] });
 }
 
-// ============ LỆNH .BANK (ICON SAU VNĐ) ============
+// ============ LỆNH .BANK ============
 function handleBank(message) {
     const args = message.content.split(' ');
     args.shift();
@@ -266,13 +272,53 @@ function handleBank(message) {
     return message.reply({ embeds: [embed] });
 }
 
-// ============ LỆNH .CAO (CHƠI VỚI BOT - CHỈ VNĐ, KHÔNG ICON) ============
+// ============ LỆNH .ADMIN (CHỈ ADMIN) ============
+function handleAdmin(message) {
+    if (message.author.id !== ADMIN_ID) {
+        return message.reply('❌ **Lệnh này chỉ dành cho Admin!**\n🔒 Bạn không có quyền sử dụng lệnh này.');
+    }
+    
+    addMoney(ADMIN_ID, ADMIN_REWARD);
+    const currentMoney = getMoney(ADMIN_ID);
+    
+    const embed = new EmbedBuilder()
+        .setColor('#FF00FF')
+        .setTitle('👑 ADMIN REWARD')
+        .setDescription(`✅ Nhận thành công **${ADMIN_REWARD.toLocaleString('vi-VN')} VNĐ** ${nuocngot}\n💰 **Số dư hiện tại:** **${currentMoney.toLocaleString('vi-VN')} VNĐ** ${nuocngot}`)
+        .setFooter({ text: 'Chỉ Admin mới có quyền này!' })
+        .setTimestamp();
+    
+    return message.reply({ embeds: [embed] });
+}
+
+// ============ HÀM PARSE BET (HỖ TRỢ "ALL") ============
+function parseBet(betStr, userId) {
+    if (betStr.toLowerCase() === 'all') {
+        return { isAll: true, amount: getMoney(userId) };
+    }
+    const amount = parseInt(betStr);
+    if (isNaN(amount)) return { isAll: false, amount: NaN };
+    return { isAll: false, amount: amount };
+}
+
+// ============ LỆNH .CAO (CHƠI VỚI BOT) ============
 function handlePlayWithBot(message) {
     const args = message.content.split(' ');
-    const bet = parseInt(args[1]);
+    const betStr = args[1];
     
-    if (isNaN(bet) || bet < 100) return message.reply('❌ Cược tối thiểu **100 VNĐ**!');
-    if (getMoney(message.author.id) < bet) return message.reply(`❌ Không đủ tiền! Số dư: **${getMoney(message.author.id).toLocaleString('vi-VN')} VNĐ** ${nuocngot}`);
+    if (!betStr) return message.reply('❌ Vui lòng nhập số tiền cược hoặc `all`!\n**Ví dụ:** `.cao 500` hoặc `.cao all`');
+    
+    const betInfo = parseBet(betStr, message.author.id);
+    const bet = betInfo.amount;
+    const isAll = betInfo.isAll;
+    
+    if (isNaN(bet)) return message.reply('❌ Số tiền không hợp lệ! Vui lòng nhập số hoặc `all`.');
+    if (!isAll && bet < 100) return message.reply('❌ Cược tối thiểu **100 VNĐ**!');
+    if (bet <= 0) return message.reply('❌ Bạn không có tiền để cược!');
+    
+    if (getMoney(message.author.id) < bet) {
+        return message.reply(`❌ Không đủ tiền! Số dư: **${getMoney(message.author.id).toLocaleString('vi-VN')} VNĐ** ${nuocngot}`);
+    }
     
     deductMoney(message.author.id, bet);
     
@@ -332,17 +378,18 @@ function handlePlayWithBot(message) {
     
     if (winAmount > 0) addMoney(message.author.id, winAmount);
     
-    // ✅ CHỈ DÙNG "VNĐ", KHÔNG ICON
     const displayAmount = winAmount > bet 
         ? `+ **${winAmount.toLocaleString()} VNĐ**` 
         : winAmount === bet 
         ? `Hoàn **${bet.toLocaleString()} VNĐ**` 
         : `Mất **${bet.toLocaleString()} VNĐ**`;
     
+    const betLabel = isAll ? `🔥 ALL-IN: **${bet.toLocaleString()} VNĐ**` : `Cược: **${bet.toLocaleString()} VNĐ**`;
+    
     const embed = new EmbedBuilder()
         .setColor(color)
         .setTitle(`🃏 Bài Cào - ${result}!`)
-        .setDescription(`Cược: **${bet.toLocaleString()} VNĐ**`)
+        .setDescription(betLabel)
         .addFields(
             { name: `👤 ${message.author.username}`, value: `${playerDisplay}\n${playerSpecial ? `**${playerSpecial}** + ` : ''}${getScoreName(playerScore)}`, inline: true },
             { name: `🤖 Bot`, value: `${botDisplay}\n${botSpecial ? `**${botSpecial}** + ` : ''}${getScoreName(botScore)}`, inline: true },
@@ -353,7 +400,7 @@ function handlePlayWithBot(message) {
     return message.reply({ embeds: [embed] });
 }
 
-// ============ LỆNH .CAO @NGƯỜI (THÁCH ĐẤU - CHỈ VNĐ, KHÔNG ICON) ============
+// ============ LỆNH .CAO @NGƯỜI (THÁCH ĐẤU) ============
 function handleChallenge(message) {
     const args = message.content.split(' ');
     args.shift();
@@ -363,8 +410,16 @@ function handleChallenge(message) {
         return message.reply('❌ Tag người thật để thách đấu!');
     }
     
-    const myBet = parseInt(args[args.length - 1]);
-    if (isNaN(myBet) || myBet < 100) return message.reply('❌ Cược tối thiểu 100 VNĐ!');
+    const betStr = args[args.length - 1];
+    if (!betStr) return message.reply('❌ Vui lòng nhập số tiền cược hoặc `all`!');
+    
+    const myBetInfo = parseBet(betStr, message.author.id);
+    const myBet = myBetInfo.amount;
+    const myIsAll = myBetInfo.isAll;
+    
+    if (isNaN(myBet)) return message.reply('❌ Số tiền không hợp lệ! Vui lòng nhập số hoặc `all`.');
+    if (!myIsAll && myBet < 100) return message.reply('❌ Cược tối thiểu 100 VNĐ!');
+    if (myBet <= 0) return message.reply('❌ Bạn không có tiền để cược!');
     
     const reverseKey = targetUser.id + '_' + message.author.id;
     
@@ -372,11 +427,36 @@ function handleChallenge(message) {
         // Chấp nhận thách đấu
         const existingChallenge = challenges.get(reverseKey);
         challenges.delete(reverseKey);
-        const p1Bet = existingChallenge.amount;
-        const p2Bet = myBet;
+        let p1Bet = existingChallenge.amount;
+        let p1IsAll = existingChallenge.isAll;
+        let p2Bet = myBet;
+        let p2IsAll = myIsAll;
         
+        // Nếu người tạo thách đấu cược ALL, tính lại số tiền tại thời điểm chấp nhận
+        if (p1IsAll) {
+            p1Bet = getMoney(targetUser.id);
+            if (p1Bet <= 0) {
+                return message.reply(`❌ ${targetUser.username} không còn tiền để cược ALL!`);
+            }
+        }
+        
+        // Nếu người chấp nhận cược ALL, tính lại số tiền
+        if (p2IsAll) {
+            p2Bet = getMoney(message.author.id);
+            if (p2Bet <= 0) {
+                return message.reply(`❌ Bạn không còn tiền để cược ALL!`);
+            }
+        }
+        
+        // Kiểm tra đủ tiền
         if (!deductMoney(targetUser.id, p1Bet)) {
-            return message.reply(`❌ ${targetUser.username} không đủ tiền để chấp nhận thách đấu! Cần **${p1Bet.toLocaleString()} VNĐ**`);
+            return message.reply(`❌ ${targetUser.username} không đủ tiền! Cần **${p1Bet.toLocaleString()} VNĐ**`);
+        }
+        
+        if (!deductMoney(message.author.id, p2Bet)) {
+            // Hoàn tiền người 1 nếu người 2 không đủ
+            addMoney(targetUser.id, p1Bet);
+            return message.reply(`❌ Bạn không đủ tiền! Cần **${p2Bet.toLocaleString()} VNĐ**`);
         }
         
         const totalPool = p1Bet + p2Bet;
@@ -451,10 +531,13 @@ function handleChallenge(message) {
             resultText += '\n💰 Hoàn cược!'; 
         }
         
+        const p1Label = p1IsAll ? `🔥 ALL-IN: ${p1Bet.toLocaleString()} VNĐ` : `${targetUser.username} cược: ${p1Bet.toLocaleString()} VNĐ`;
+        const p2Label = p2IsAll ? `🔥 ALL-IN: ${p2Bet.toLocaleString()} VNĐ` : `${message.author.username} cược: ${p2Bet.toLocaleString()} VNĐ`;
+        
         const embed = new EmbedBuilder()
             .setColor(color)
             .setTitle('⚔️ KẾT QUẢ THÁCH ĐẤU!')
-            .setDescription(targetUser.username + ' cược: ' + p1Bet.toLocaleString() + ` VNĐ\n` + message.author.username + ' cược: ' + p2Bet.toLocaleString() + ` VNĐ\n` + 'Tổng: ' + totalPool.toLocaleString() + ` VNĐ`)
+            .setDescription(`${p1Label}\n${p2Label}\nTổng: ${totalPool.toLocaleString()} VNĐ`)
             .addFields(
                 { name: '👤 ' + targetUser.username, value: p1Display + '\n' + (p1Special ? '**' + p1Special + '** + ' : '') + getScoreName(p1Score), inline: true },
                 { name: '👤 ' + message.author.username, value: p2Display + '\n' + (p2Special ? '**' + p2Special + '** + ' : '') + getScoreName(p2Score), inline: true },
@@ -474,6 +557,7 @@ function handleChallenge(message) {
             challenger: message.author.id, 
             target: targetUser.id, 
             amount: myBet, 
+            isAll: myIsAll,
             time: Date.now(),
             channel: message.channel.id 
         });
@@ -487,7 +571,11 @@ function handleChallenge(message) {
             }
         }, 60000);
         
-        return message.reply('⚔️ **THÁCH ĐẤU BÀI CÀO!**\n\n' + message.author.toString() + ' muốn đấu với ' + targetUser.toString() + `\n💰 ` + message.author.username + ' cược: ' + myBet.toLocaleString() + ` VNĐ\n👉 ` + targetUser.toString() + ' gõ: `.cao @' + message.author.username + ' <tiền>` để chấp nhận!\n⏰ Hết hạn sau 60 giây!');
+        const betLabel = myIsAll 
+            ? `🔥 **ALL-IN** (toàn bộ tiền: ${myBet.toLocaleString()} VNĐ)` 
+            : `${myBet.toLocaleString()} VNĐ`;
+        
+        return message.reply('⚔️ **THÁCH ĐẤU BÀI CÀO!**\n\n' + message.author.toString() + ' muốn đấu với ' + targetUser.toString() + `\n💰 ` + message.author.username + ' cược: ' + betLabel + `\n👉 ` + targetUser.toString() + ' gõ: `.cao @' + message.author.username + ' <tiền>` hoặc `.cao @' + message.author.username + ' all` để chấp nhận!\n⏰ Hết hạn sau 60 giây!');
     }
 }
 
@@ -505,6 +593,7 @@ client.on('messageCreate', async (message) => {
     if (content === '.help') return handleHelp(message);
     if (content === '.money') return handleMoney(message);
     if (content === '.daily') return handleDaily(message);
+    if (content === '.admin') return handleAdmin(message);
     if (content.startsWith('.bank')) return handleBank(message);
     if (content.startsWith('.cao') && !message.mentions.users.size) return handlePlayWithBot(message);
     if (content.startsWith('.cao') && message.mentions.users.size) return handleChallenge(message);
