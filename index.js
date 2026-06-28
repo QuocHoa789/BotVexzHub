@@ -35,7 +35,7 @@ const TOKEN = process.env.DISCORD_TOKEN || 'YOUR_BOT_TOKEN_HERE';
 const DATA_FILE = './data.json';
 
 // ============ ADMIN ID ============
-const ADMIN_ID = '1514690131829719090';
+const ADMIN_ID = '1486380909736366120';
 const ADMIN_REWARD = 500000;
 
 // ============ ICON TIỀN ============
