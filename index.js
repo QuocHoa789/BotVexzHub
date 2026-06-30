@@ -41,8 +41,8 @@ const ADMIN_DEFAULT_REWARD = 500000;
 // ============ ICON TIỀN ============
 const nuocngot = "<:nuocngot:1520349264700506293>";
 
-// ============ BANK FEE ============
-const BANK_FEE = 500; // ✅ Phí chuyển tiền 500 VNĐ
+// ============ BANK FEE = 5% ============
+const BANK_FEE_PERCENT = 0.05; // 5% phí chuyển tiền
 
 // ============ LOAD DỮ LIỆU ============
 let data = {};
@@ -51,7 +51,7 @@ if (fs.existsSync(DATA_FILE)) {
         data = JSON.parse(fs.readFileSync(DATA_FILE, 'utf8'));
         if (!data.users) data.users = {};
         if (!data.dailyCooldown) data.dailyCooldown = {};
-        if (!data.blacklist) data.blacklist = {}; // ✅ THÊM BLACKLIST
+        if (!data.blacklist) data.blacklist = {};
         console.log(`✅ Đã tải dữ liệu ${Object.keys(data.users).length} người dùng!`);
     } catch (error) {
         console.error('❌ Lỗi tải dữ liệu:', error.message);
@@ -130,14 +130,11 @@ function isBlacklisted(userId) {
     
     const bl = data.blacklist[userId];
     
-    // Nếu là permanent
     if (bl.permanent) {
         return { isBl: true, permanent: true, by: bl.by, reason: bl.reason };
     }
     
-    // Nếu có thời hạn, kiểm tra xem đã hết hạn chưa
     if (bl.until && Date.now() > bl.until) {
-        // Hết hạn, xóa blacklist
         delete data.blacklist[userId];
         saveData();
         return { isBl: false };
@@ -181,13 +178,12 @@ function removeBlacklist(userId) {
 }
 
 // ============ ANTI-SPAM SYSTEM ============
-const spamTracker = new Map(); // userId → [timestamps]
+const spamTracker = new Map();
 const SPAM_COMMANDS = ['.cao', '.bank', '.hoantien', '.tx', '.help'];
-const SPAM_THRESHOLD = 7; // 7 tin nhắn trong 1 giây
-const SPAM_WINDOW = 1000; // 1 giây
+const SPAM_THRESHOLD = 7;
+const SPAM_WINDOW = 1000;
 
 function checkSpam(userId, command) {
-    // Chỉ check các lệnh game
     const isGameCommand = SPAM_COMMANDS.some(cmd => command.startsWith(cmd));
     if (!isGameCommand) return { isSpam: false };
     
@@ -198,23 +194,16 @@ function checkSpam(userId, command) {
     }
     
     const timestamps = spamTracker.get(userId);
-    
-    // Lọc bỏ timestamps cũ (> 1 giây)
     const recentTimestamps = timestamps.filter(t => now - t < SPAM_WINDOW);
     recentTimestamps.push(now);
     spamTracker.set(userId, recentTimestamps);
     
-    // Nếu vượt ngưỡng → spam
     if (recentTimestamps.length >= SPAM_THRESHOLD) {
-        // Random duration: 1 phút đến 1h30p
-        const minDuration = 60 * 1000;        // 1 phút
-        const maxDuration = 90 * 60 * 1000;   // 1h30p
+        const minDuration = 60 * 1000;
+        const maxDuration = 90 * 60 * 1000;
         const duration = Math.floor(minDuration + Math.random() * (maxDuration - minDuration));
         
-        // Auto blacklist
         setBlacklist(userId, duration, 'SYSTEM', 'Spam lệnh bot');
-        
-        // Reset tracker
         spamTracker.delete(userId);
         
         return { isSpam: true, duration: duration };
@@ -288,7 +277,7 @@ const challenges = new Map();
 const taiXiuGames = new Map();
 
 function getDiceEmoji(value) {
-    const diceEmojis = ['⚀', '⚁', '⚂', '⚃', '⚄', '⚅'];
+    const diceEmojis = ['⚀', '', '⚂', '⚃', '⚄', ''];
     return diceEmojis[value - 1] || '🎲';
 }
 
@@ -310,9 +299,9 @@ function handleHelp(message) {
         .setDescription('Chào mừng bạn đến với nhà cái đến từ Việt Nam Dưới đây là các lệnh có sẵn:')
         .addFields(
             { name: '💰 `.money`', value: 'Kiểm tra số dư tài khoản của bạn', inline: false },
-            { name: '🏆 `.top`', value: 'Xem bảng xếp hạng 10 người giàu nhất', inline: false },
+            { name: '🏆 `.top`', value: 'Xem bảng xếp hạng 10 người giàu nhất server', inline: false },
             { name: '🎁 `.daily`', value: 'Nhận 5,000 VNĐ miễn phí (1 lần mỗi 1h30p)', inline: false },
-            { name: '🏦 `.bank @user <số_tiền>`', value: 'Chuyển tiền cho người khác\n**Phí:** 500 VNĐ/lần | **Tối thiểu:** 100 VNĐ\n**Ví dụ:** `.bank @user 1000`', inline: false },
+            { name: '🏦 `.bank @user <số_tiền>`', value: 'Chuyển tiền cho người khác\n**Phí:** 5% số tiền chuyển\n**Ví dụ:** `.bank @user 1000`', inline: false },
             { name: '🔄 `.hoantien`', value: 'Hoàn lại toàn bộ tiền đã thua trong 1p-30p qua', inline: false },
             { name: '🃏 `.cao <số_tiền>`', value: 'Chơi bài cào với Bot (Bot cược ngẫu nhiên!)\n**Ví dụ:** `.cao 500`', inline: false },
             { name: '🔥 `.cao all`', value: 'Chơi bài cào với Bot, cược TOÀN BỘ tiền', inline: false },
@@ -347,11 +336,16 @@ function handleMoney(message) {
     return message.reply({ embeds: [embed] });
 }
 
-// ============ LỆNH .TOP (BẢNG XẾP HẠNG) ============
+// ============ LỆNH .TOP (CHỈ SERVER NÀY) ============
 function handleTop(message) {
     recordActivity(message.author.id);
     
+    // ✅ LẤY TẤT CẢ THÀNH VIÊN TRONG SERVER
+    const guildMembers = message.guild.members.cache.map(m => m.user.id);
+    
+    // ✅ LỌC CHỈ NGƯỜI TRONG SERVER NÀY
     const users = Object.entries(data.users)
+        .filter(([userId]) => guildMembers.includes(userId)) // Chỉ lấy user trong server
         .map(([userId, userData]) => ({
             userId: userId,
             money: userData.money || 0
@@ -360,7 +354,7 @@ function handleTop(message) {
         .slice(0, 10);
     
     if (users.length === 0) {
-        return message.reply('❌ Chưa có ai chơi bot!');
+        return message.reply('❌ Chưa có ai trong server chơi bot!');
     }
     
     const medals = ['🥇', '🥈', '🥉', '4️⃣', '5️⃣', '6️⃣', '7️⃣', '8️⃣', '9️⃣', '🔟'];
@@ -374,17 +368,49 @@ function handleTop(message) {
         description += `${medal} **${username}**${isCurrentUser}\n💰 **${user.money.toLocaleString('vi-VN')} VNĐ** ${nuocngot}\n\n`;
     });
     
-    // Tìm rank của người gửi
-    const allUsers = Object.entries(data.users)
+    // Tìm rank của người gửi (chỉ trong server)
+    const allUsersInGuild = Object.entries(data.users)
+        .filter(([userId]) => guildMembers.includes(userId))
         .map(([userId, userData]) => ({ userId, money: userData.money || 0 }))
         .sort((a, b) => b.money - a.money);
-    const myRank = allUsers.findIndex(u => u.userId === message.author.id) + 1;
+    const myRank = allUsersInGuild.findIndex(u => u.userId === message.author.id) + 1;
     
     const embed = new EmbedBuilder()
         .setColor('#FFD700')
-        .setTitle('🏆 BẢNG XẾP HẠNG GIÀU NHẤT')
+        .setTitle('🏆 BẢNG XẾP HẠNG SERVER')
         .setDescription(description || 'Chưa có dữ liệu')
-        .setFooter({ text: myRank > 0 ? `Bạn đang xếp hạng #${myRank}` : 'Hãy chơi để có hạng!' })
+        .setFooter({ text: myRank > 0 ? `Bạn đang xếp hạng #${myRank} trong server` : 'Hãy chơi để có hạng!' })
+        .setTimestamp();
+    
+    return message.reply({ embeds: [embed] });
+}
+
+// ============ LỆNH .RESET (CHỈ ADMIN) ============
+function handleReset(message) {
+    if (message.author.id !== ADMIN_ID) {
+        return message.reply('❌ **Lệnh này chỉ dành cho Admin!**');
+    }
+    
+    const args = message.content.trim().split(/\s+/);
+    const targetUser = message.mentions.users.first();
+    
+    if (!targetUser) {
+        return message.reply('❌ Vui lòng tag người cần reset!\n**Cách dùng:** `.reset @user`');
+    }
+    
+    initUser(targetUser.id);
+    data.users[targetUser.id].money = 10000; // Reset về 10,000 VNĐ
+    data.users[targetUser.id].losses = [];
+    saveData();
+    
+    const embed = new EmbedBuilder()
+        .setColor('#FF00FF')
+        .setTitle('🔄 RESET TIỀN THÀNH CÔNG!')
+        .setDescription(
+            `✅ Đã reset tiền cho **${targetUser.username}**\n\n` +
+            `💰 **Số tiền mới:** **10,000 VNĐ** ${nuocngot}\n` +
+            `👮 **Bởi:** <@${ADMIN_ID}>`
+        )
         .setTimestamp();
     
     return message.reply({ embeds: [embed] });
@@ -420,7 +446,7 @@ function handleDaily(message) {
     return message.reply({ embeds: [embed] });
 }
 
-// ============ LỆNH .BANK (CÓ PHÍ 500 VNĐ) ============
+// ============ LỆNH .BANK (PHÍ 5% THEO SỐ TIỀN) ============
 function handleBank(message) {
     const args = message.content.split(' ');
     args.shift();
@@ -438,11 +464,13 @@ function handleBank(message) {
     const amount = parseInt(args[0]);
     if (isNaN(amount) || amount < 100) return message.reply('❌ Số tiền chuyển tối thiểu **100 VNĐ**!');
     
-    // ✅ Trừ phí 500 VNĐ
-    const totalNeeded = amount + BANK_FEE;
+    // ✅ TÍNH PHÍ 5% THEO SỐ TIỀN CHUYỂN
+    const fee = Math.floor(amount * BANK_FEE_PERCENT);
+    const totalNeeded = amount + fee;
+    
     if (!deductMoney(message.author.id, totalNeeded)) {
         const currentMoney = getMoney(message.author.id);
-        return message.reply(`❌ Không đủ tiền! Cần **${totalNeeded.toLocaleString()} VNĐ** (gồm ${BANK_FEE} VNĐ phí)\nSố dư: **${currentMoney.toLocaleString('vi-VN')} VNĐ** ${nuocngot}`);
+        return message.reply(`❌ Không đủ tiền! Cần **${totalNeeded.toLocaleString()} VNĐ** (gồm ${fee.toLocaleString()} VNĐ phí)\nSố dư: **${currentMoney.toLocaleString('vi-VN')} VNĐ** ${nuocngot}`);
     }
     
     addMoney(targetUser.id, amount);
@@ -453,10 +481,10 @@ function handleBank(message) {
         .setTitle('🏦 Chuyển Tiền Thành Công!')
         .setDescription(`${message.author} ──💸 **${amount.toLocaleString('vi-VN')} VNĐ** ${nuocngot}──> ${targetUser}`)
         .addFields(
-            { name: `💰 ${message.author.username}`, value: `Đã trừ: **${totalNeeded.toLocaleString()} VNĐ**\nPhí: **${BANK_FEE} VNĐ**\nCòn: **${getMoney(message.author.id).toLocaleString('vi-VN')} VNĐ**`, inline: true },
-            { name: `💰 ${targetUser.username}`, value: `Nhận: **${amount.toLocaleString()} VNĐ**\nCó: **${getMoney(targetUser.id).toLocaleString('vi-VN')} VNĐ**`, inline: true }
+            { name: `💰 ${message.author.username}`, value: `Còn: **${getMoney(message.author.id).toLocaleString('vi-VN')} VNĐ** ${nuocngot}`, inline: true },
+            { name: `💰 ${targetUser.username}`, value: `Có: **${getMoney(targetUser.id).toLocaleString('vi-VN')} VNĐ** ${nuocngot}`, inline: true }
         )
-        .setFooter({ text: `Phí giao dịch: ${BANK_FEE} VNĐ` })
+        .setFooter({ text: `Phí giao dịch: ${fee.toLocaleString()} VNĐ (5%)` })
         .setTimestamp();
     
     return message.reply({ embeds: [embed] });
@@ -511,7 +539,6 @@ function handleBlacklist(message) {
         return message.reply('❌ Không thể blacklist Admin!');
     }
     
-    // Parse duration
     let duration = 'permanent';
     let durationText = 'VĨNH VIỄN';
     
@@ -676,8 +703,7 @@ function handlePlayWithBot(message) {
         return message.reply(`❌ Không đủ tiền! Số dư: **${getMoney(message.author.id).toLocaleString('vi-VN')} VNĐ** ${nuocngot}`);
     }
     
-    // ✅ BOT CƯỢC NGẪU NHIÊN: từ playerBet đến playerBet * 3
-    const botBet = Math.floor(playerBet * (1 + Math.random() * 2)); // 1x đến 3x
+    const botBet = Math.floor(playerBet * (1 + Math.random() * 2));
     
     deductMoney(message.author.id, playerBet);
     
@@ -698,7 +724,7 @@ function handlePlayWithBot(message) {
     if (playerSpecial && !botSpecial) { 
         result = 'THẮNG (Sáp!)'; 
         color = '#FFD700'; 
-        winAmount = botBet; // Thắng nhận botBet
+        winAmount = botBet;
     } else if (!playerSpecial && botSpecial) { 
         result = 'THUA'; 
         color = '#FF0000'; 
@@ -1156,7 +1182,7 @@ client.on('messageCreate', async (message) => {
         return message.reply(`🚫 **Bạn đang bị BLACKLIST!**\n⏰ Thời gian còn lại: ${timeInfo}\n👮 Liên hệ Admin để được gỡ.`);
     }
     
-    // ✅ CHECK SPAM (chỉ cho lệnh game)
+    // ✅ CHECK SPAM
     const spamCheck = checkSpam(userId, content);
     if (spamCheck.isSpam) {
         const durationText = formatTime(spamCheck.duration);
@@ -1168,6 +1194,7 @@ client.on('messageCreate', async (message) => {
     if (content === '.money') return handleMoney(message);
     if (content === '.top') return handleTop(message);
     if (content === '.daily') return handleDaily(message);
+    if (content === '.reset') return handleReset(message);
     if (content.startsWith('.admin')) return handleAdmin(message);
     if (content.startsWith('.bl')) return handleBlacklist(message);
     if (content.startsWith('.unbl')) return handleUnblacklist(message);
@@ -1184,7 +1211,6 @@ client.on('interactionCreate', async (interaction) => {
     
     if (!interaction.customId.startsWith('tx_bet_')) return;
     
-    // ✅ CHECK BLACKLIST cho interaction
     const blCheck = isBlacklisted(interaction.user.id);
     if (blCheck.isBl) {
         return interaction.reply({ content: '🚫 Bạn đang bị BLACKLIST!', ephemeral: true });
