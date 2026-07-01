@@ -42,7 +42,7 @@ const ADMIN_DEFAULT_REWARD = 500000;
 const nuocngot = "<:nuocngot:1520349264700506293>";
 
 // ============ BANK FEE = 5% ============
-const BANK_FEE_PERCENT = 0.05; // 5% phí chuyển tiền
+const BANK_FEE_PERCENT = 0.05;
 
 // ============ LOAD DỮ LIỆU ============
 let data = {};
@@ -277,7 +277,7 @@ const challenges = new Map();
 const taiXiuGames = new Map();
 
 function getDiceEmoji(value) {
-    const diceEmojis = ['⚀', '', '⚂', '⚃', '⚄', ''];
+    const diceEmojis = ['⚀', '⚁', '⚂', '⚃', '⚄', '⚅'];
     return diceEmojis[value - 1] || '🎲';
 }
 
@@ -340,12 +340,10 @@ function handleMoney(message) {
 function handleTop(message) {
     recordActivity(message.author.id);
     
-    // ✅ LẤY TẤT CẢ THÀNH VIÊN TRONG SERVER
     const guildMembers = message.guild.members.cache.map(m => m.user.id);
     
-    // ✅ LỌC CHỈ NGƯỜI TRONG SERVER NÀY
     const users = Object.entries(data.users)
-        .filter(([userId]) => guildMembers.includes(userId)) // Chỉ lấy user trong server
+        .filter(([userId]) => guildMembers.includes(userId))
         .map(([userId, userData]) => ({
             userId: userId,
             money: userData.money || 0
@@ -368,7 +366,6 @@ function handleTop(message) {
         description += `${medal} **${username}**${isCurrentUser}\n💰 **${user.money.toLocaleString('vi-VN')} VNĐ** ${nuocngot}\n\n`;
     });
     
-    // Tìm rank của người gửi (chỉ trong server)
     const allUsersInGuild = Object.entries(data.users)
         .filter(([userId]) => guildMembers.includes(userId))
         .map(([userId, userData]) => ({ userId, money: userData.money || 0 }))
@@ -399,7 +396,7 @@ function handleReset(message) {
     }
     
     initUser(targetUser.id);
-    data.users[targetUser.id].money = 10000; // Reset về 10,000 VNĐ
+    data.users[targetUser.id].money = 10000;
     data.users[targetUser.id].losses = [];
     saveData();
     
@@ -464,7 +461,6 @@ function handleBank(message) {
     const amount = parseInt(args[0]);
     if (isNaN(amount) || amount < 100) return message.reply('❌ Số tiền chuyển tối thiểu **100 VNĐ**!');
     
-    // ✅ TÍNH PHÍ 5% THEO SỐ TIỀN CHUYỂN
     const fee = Math.floor(amount * BANK_FEE_PERCENT);
     const totalNeeded = amount + fee;
     
@@ -682,7 +678,7 @@ function parseBet(betStr, userId) {
     return { isAll: false, amount: amount };
 }
 
-// ============ LỆNH .CAO (BOT CƯỢC NGẪU NHIÊN) ============
+// ============ LỆNH .CAO (BOT CƯỢC NGẪU NHIÊN) - ĐÃ FIX ============
 function handlePlayWithBot(message) {
     const args = message.content.split(' ');
     const betStr = args[1];
@@ -703,7 +699,11 @@ function handlePlayWithBot(message) {
         return message.reply(`❌ Không đủ tiền! Số dư: **${getMoney(message.author.id).toLocaleString('vi-VN')} VNĐ** ${nuocngot}`);
     }
     
+    // ✅ BOT CƯỢC NGẪU NHIÊN: từ playerBet đến playerBet * 3
     const botBet = Math.floor(playerBet * (1 + Math.random() * 2));
+    
+    // ✅ TỔNG POOL = Tiền người chơi + Tiền bot
+    const totalPool = playerBet + botBet;
     
     deductMoney(message.author.id, playerBet);
     
@@ -724,7 +724,7 @@ function handlePlayWithBot(message) {
     if (playerSpecial && !botSpecial) { 
         result = 'THẮNG (Sáp!)'; 
         color = '#FFD700'; 
-        winAmount = botBet;
+        winAmount = totalPool;
     } else if (!playerSpecial && botSpecial) { 
         result = 'THUA'; 
         color = '#FF0000'; 
@@ -733,12 +733,12 @@ function handlePlayWithBot(message) {
         if (playerSpecial === botSpecial) { 
             result = 'HÒA'; 
             color = '#FFFF00'; 
-            winAmount = playerBet; 
+            winAmount = playerBet;
         } else { 
             if (playerScore > botScore) { 
                 result = 'THẮNG'; 
                 color = '#FFD700'; 
-                winAmount = botBet; 
+                winAmount = totalPool;
             } else { 
                 result = 'THUA'; 
                 color = '#FF0000'; 
@@ -749,7 +749,7 @@ function handlePlayWithBot(message) {
         if (playerScore > botScore) { 
             result = 'THẮNG'; 
             color = '#FFD700'; 
-            winAmount = botBet; 
+            winAmount = totalPool;
         } else if (playerScore < botScore) { 
             result = 'THUA'; 
             color = '#FF0000'; 
@@ -757,7 +757,7 @@ function handlePlayWithBot(message) {
         } else { 
             result = 'HÒA'; 
             color = '#FFFF00'; 
-            winAmount = playerBet; 
+            winAmount = playerBet;
         }
     }
     
@@ -767,11 +767,15 @@ function handlePlayWithBot(message) {
         recordLoss(message.author.id, playerBet, 'Bài Cào (vs Bot)');
     }
     
-    const displayAmount = winAmount > playerBet 
-        ? `+ **${winAmount.toLocaleString()} VNĐ**` 
-        : winAmount === playerBet 
-        ? `Hoàn **${playerBet.toLocaleString()} VNĐ**` 
-        : `Mất **${playerBet.toLocaleString()} VNĐ**`;
+    // ✅ HIỂN THỊ KẾT QUẢ ĐƠN GIẢN (không có "ăn cả pool", không có "tổng pool")
+    let displayAmount = '';
+    if (winAmount === totalPool) {
+        displayAmount = `+ **${winAmount.toLocaleString()} VNĐ**`;
+    } else if (winAmount === playerBet) {
+        displayAmount = `Hoàn **${playerBet.toLocaleString()} VNĐ**`;
+    } else {
+        displayAmount = `Mất **${playerBet.toLocaleString()} VNĐ**`;
+    }
     
     const playerBetLabel = isAll ? `🔥 ALL-IN: **${playerBet.toLocaleString()} VNĐ**` : `Bạn cược: **${playerBet.toLocaleString()} VNĐ**`;
     const botBetLabel = `🤖 Bot cược: **${botBet.toLocaleString()} VNĐ**`;
@@ -1169,7 +1173,6 @@ client.on('messageCreate', async (message) => {
     const content = message.content.trim().toLowerCase();
     const userId = message.author.id;
     
-    // ✅ CHECK BLACKLIST
     const blCheck = isBlacklisted(userId);
     if (blCheck.isBl) {
         let timeInfo = '';
@@ -1182,14 +1185,12 @@ client.on('messageCreate', async (message) => {
         return message.reply(`🚫 **Bạn đang bị BLACKLIST!**\n⏰ Thời gian còn lại: ${timeInfo}\n👮 Liên hệ Admin để được gỡ.`);
     }
     
-    // ✅ CHECK SPAM
     const spamCheck = checkSpam(userId, content);
     if (spamCheck.isSpam) {
         const durationText = formatTime(spamCheck.duration);
         return message.reply(`🚫 **PHÁT HIỆN SPAM!**\n\n⚠️ Bạn đã spam lệnh bot quá nhiều!\n⏰ **Đã bị blacklist tự động: ${durationText}**\n\n💡 Hãy chơi chậm lại để tránh bị phạt!`);
     }
     
-    // Xử lý lệnh
     if (content === '.help') return handleHelp(message);
     if (content === '.money') return handleMoney(message);
     if (content === '.top') return handleTop(message);
